@@ -34,11 +34,11 @@ export class AuditService {
           created_at
         )
         VALUES (
-          ${input.businessId},
-          ${input.actorUserId},
+          CAST(${input.businessId} AS uuid),
+          CAST(${input.actorUserId} AS uuid),
           ${input.action},
           ${input.entityType},
-          ${input.entityId},
+          CAST(${input.entityId} AS uuid),
           CAST(${input.beforeJson ? JSON.stringify(input.beforeJson) : null} AS jsonb),
           CAST(${input.afterJson ? JSON.stringify(input.afterJson) : null} AS jsonb),
           NOW()

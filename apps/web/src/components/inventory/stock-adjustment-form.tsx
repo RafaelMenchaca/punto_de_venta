@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,6 +38,12 @@ export function StockAdjustmentForm({
     setNewQuantity(String(current_quantity));
   }, [current_quantity]);
 
+  const numericQuantity = Number(newQuantity);
+  const isInvalidQuantity = useMemo(
+    () => Number.isNaN(numericQuantity) || numericQuantity < 0,
+    [numericQuantity],
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -70,15 +76,15 @@ export function StockAdjustmentForm({
 
         <Button
           className="w-full"
-          disabled={loading}
+          disabled={loading || isInvalidQuantity || reason.trim().length === 0}
           onClick={() =>
             onSubmit({
               business_id,
               branch_id,
               location_id,
               product_id,
-              new_quantity: Number(newQuantity),
-              reason,
+              new_quantity: numericQuantity,
+              reason: reason.trim(),
             })
           }
         >

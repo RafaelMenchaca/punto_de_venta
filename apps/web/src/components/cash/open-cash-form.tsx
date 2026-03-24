@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,6 +29,11 @@ export function OpenCashForm({
 }) {
   const [openingAmount, setOpeningAmount] = useState("0");
   const [notes, setNotes] = useState("");
+  const numericAmount = Number(openingAmount);
+  const isInvalidAmount = useMemo(
+    () => Number.isNaN(numericAmount) || numericAmount < 0,
+    [numericAmount],
+  );
 
   return (
     <Card>
@@ -63,14 +68,14 @@ export function OpenCashForm({
 
         <Button
           className="w-full"
-          disabled={loading}
+          disabled={loading || isInvalidAmount}
           onClick={() =>
             onSubmit({
               business_id,
               branch_id,
               register_id,
-              opening_amount: Number(openingAmount),
-              notes,
+              opening_amount: numericAmount,
+              notes: notes.trim() || undefined,
             })
           }
         >

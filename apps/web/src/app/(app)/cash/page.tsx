@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CashSessionCard } from "@/components/cash/cash-session-card";
 import { CloseCashForm } from "@/components/cash/close-cash-form";
 import { OpenCashForm } from "@/components/cash/open-cash-form";
+import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import {
@@ -66,15 +67,29 @@ export default function CashPage() {
             <input
               className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={register_id ?? ""}
-              onChange={(event) => setRegisterId(event.target.value)}
+              onChange={(event) => setRegisterId(event.target.value.trim())}
               placeholder="UUID de register"
             />
           </CardContent>
         </Card>
 
-        {openSessionQuery.isLoading ? <LoadingState /> : null}
+        {openSessionQuery.isLoading ? (
+          <LoadingState message="Consultando sesión abierta..." />
+        ) : null}
         {openSessionQuery.error instanceof Error ? (
-          <ErrorState message={openSessionQuery.error.message} />
+          <ErrorState
+            message={openSessionQuery.error.message}
+            actionLabel="Reintentar"
+            onAction={() => void openSessionQuery.refetch()}
+          />
+        ) : null}
+        {!openSessionQuery.isLoading &&
+        !openSessionQuery.error &&
+        !openSessionQuery.data ? (
+          <EmptyState
+            title="Sin sesión abierta"
+            description="Esta caja todavía no tiene un turno abierto. Puedes abrirla desde el panel derecho."
+          />
         ) : null}
         {openSessionQuery.data ? (
           <CashSessionCard session={openSessionQuery.data} />
@@ -86,13 +101,22 @@ export default function CashPage() {
           <ErrorState message="Necesitas definir una caja para operar." />
         ) : openSessionQuery.data ? (
           <CloseCashForm
+            key={openSessionQuery.data.id}
             session={openSessionQuery.data}
             loading={closeMutation.isPending}
             onSubmit={async (payload) => {
-              const response = await closeMutation.mutateAsync(payload);
-              toast.success(
-                `Caja cerrada. Diferencia: ${response.difference_amount.toFixed(2)}`,
-              );
+              try {
+                const response = await closeMutation.mutateAsync(payload);
+                toast.success(
+                  `Caja cerrada. Diferencia: ${response.difference_amount.toFixed(2)}`,
+                );
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "No fue posible cerrar la caja.",
+                );
+              }
             }}
           />
         ) : (
@@ -102,8 +126,16 @@ export default function CashPage() {
             register_id={register_id}
             loading={openMutation.isPending}
             onSubmit={async (payload) => {
-              await openMutation.mutateAsync(payload);
-              toast.success("Caja abierta correctamente.");
+              try {
+                await openMutation.mutateAsync(payload);
+                toast.success("Caja abierta correctamente.");
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "No fue posible abrir la caja.",
+                );
+              }
             }}
           />
         )}

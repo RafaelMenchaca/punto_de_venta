@@ -15,9 +15,9 @@ export class RegisterValidationService {
       Prisma.sql`
         SELECT id
         FROM registers
-        WHERE id = ${registerId}
-          AND branch_id = ${branchId}
-          AND business_id = ${businessId}
+        WHERE id = CAST(${registerId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          AND business_id = CAST(${businessId} AS uuid)
         LIMIT 1
       `,
     );

@@ -5,8 +5,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
 import type { CashSession } from "@/features/cash/types";
+import { formatCurrency } from "@/lib/utils";
 
 export function CashSessionCard({ session }: { session: CashSession }) {
   return (

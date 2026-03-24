@@ -53,12 +53,12 @@ export class CashRepository {
           opened_at
         )
         VALUES (
-          ${input.businessId},
-          ${input.branchId},
-          ${input.registerId},
-          ${input.openedBy},
+          CAST(${input.businessId} AS uuid),
+          CAST(${input.branchId} AS uuid),
+          CAST(${input.registerId} AS uuid),
+          CAST(${input.openedBy} AS uuid),
           ${input.openingAmount},
-          ${CashSessionStatus.OPEN},
+          CAST(${CashSessionStatus.OPEN} AS cash_session_status),
           ${input.notes ?? null},
           NOW()
         )
@@ -94,7 +94,7 @@ export class CashRepository {
             cash_session_id,
             SUM(amount) AS amounts
           FROM cash_movements
-          WHERE cash_session_id = ${cashSessionId}
+          WHERE cash_session_id = CAST(${cashSessionId} AS uuid)
           GROUP BY cash_session_id
         ) cm ON cm.cash_session_id = cs.id
         LEFT JOIN (
@@ -103,11 +103,11 @@ export class CashRepository {
             SUM(p.amount) AS amounts
           FROM sales s
           INNER JOIN payments p ON p.sale_id = s.id
-          WHERE s.cash_session_id = ${cashSessionId}
-            AND p.payment_method = 'cash'
+          WHERE s.cash_session_id = CAST(${cashSessionId} AS uuid)
+            AND p.payment_method = CAST('cash' AS payment_method)
           GROUP BY s.cash_session_id
         ) cp ON cp.cash_session_id = cs.id
-        WHERE cs.id = ${cashSessionId}
+        WHERE cs.id = CAST(${cashSessionId} AS uuid)
         LIMIT 1
       `,
     );
@@ -131,14 +131,14 @@ export class CashRepository {
       Prisma.sql`
         UPDATE cash_sessions
         SET
-          closed_by = ${input.closedBy},
+          closed_by = CAST(${input.closedBy} AS uuid),
           closed_at = NOW(),
           closing_expected = ${input.closingExpected},
           closing_counted = ${input.closingCounted},
           difference_amount = ${input.differenceAmount},
-          status = ${CashSessionStatus.CLOSED},
+          status = CAST(${CashSessionStatus.CLOSED} AS cash_session_status),
           notes = ${input.notes ?? null}
-        WHERE id = ${input.cashSessionId}
+        WHERE id = CAST(${input.cashSessionId} AS uuid)
         RETURNING
           id,
           business_id AS "businessId",
