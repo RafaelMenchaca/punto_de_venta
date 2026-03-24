@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +30,12 @@ export function CloseCashForm({
     String(session.openingAmount),
   );
   const [notes, setNotes] = useState("");
+
+  const numericAmount = Number(closingCounted);
+  const isInvalidAmount = useMemo(
+    () => Number.isNaN(numericAmount) || numericAmount < 0,
+    [numericAmount],
+  );
 
   return (
     <Card>
@@ -65,12 +71,12 @@ export function CloseCashForm({
         <Button
           className="w-full"
           variant="destructive"
-          disabled={loading}
+          disabled={loading || isInvalidAmount}
           onClick={() =>
             onSubmit({
               cash_session_id: session.id,
-              closing_counted: Number(closingCounted),
-              notes,
+              closing_counted: numericAmount,
+              notes: notes.trim() || undefined,
             })
           }
         >

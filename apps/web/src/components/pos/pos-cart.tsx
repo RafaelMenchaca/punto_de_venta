@@ -53,6 +53,7 @@ export function PosCart({
             <Input
               type="number"
               min="1"
+              step="1"
               value={item.quantity}
               onChange={(event) =>
                 onQuantityChange(item.product_id, Number(event.target.value))

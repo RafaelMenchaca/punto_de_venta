@@ -59,17 +59,19 @@ export class SalesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const productIds = input.items.map((item) => item.product_id);
+      const uniqueProductIds = [
+        ...new Set(input.items.map((item) => item.product_id)),
+      ];
       const products = await this.salesRepository.getProductsForSale(
         input.business_id,
-        productIds,
+        uniqueProductIds,
         tx,
       );
       const productsById = new Map(
         products.map((product) => [product.id, product]),
       );
 
-      if (productsById.size !== productIds.length) {
+      if (productsById.size !== uniqueProductIds.length) {
         throw new NotFoundException(
           'Uno o más productos no existen o no pertenecen al negocio.',
         );
@@ -161,13 +163,14 @@ export class SalesService {
           registerId: input.register_id,
           cashSessionId: input.cash_session_id,
           customerId: input.customer_id ?? null,
+          soldBy: user.id,
           status: 'completed',
+          paymentStatus: 'paid',
           subtotal,
           discountTotal: 0,
           taxTotal,
           total,
           notes: input.notes ?? null,
-          createdBy: user.id,
         },
         tx,
       );
@@ -209,6 +212,7 @@ export class SalesService {
               productId: item.productId,
               quantity: item.quantity,
               referenceId: sale.id,
+              unitCost: item.unitCostSnapshot,
               actorUserId: user.id,
             },
             tx,
@@ -221,9 +225,6 @@ export class SalesService {
         const savedPayment = await this.salesRepository.createPayment(
           {
             saleId: sale.id,
-            businessId: input.business_id,
-            branchId: input.branch_id,
-            cashSessionId: input.cash_session_id,
             paymentMethod: payment.payment_method,
             amount: payment.amount,
             reference: payment.reference ?? null,

@@ -33,8 +33,8 @@ export class CashSessionLookupService {
           opened_at AS "openedAt",
           notes
         FROM cash_sessions
-        WHERE register_id = ${registerId}
-          AND status = ${CashSessionStatus.OPEN}
+        WHERE register_id = CAST(${registerId} AS uuid)
+          AND status = CAST(${CashSessionStatus.OPEN} AS cash_session_status)
         ORDER BY opened_at DESC
         LIMIT 1
       `,
@@ -57,8 +57,8 @@ export class CashSessionLookupService {
           opened_at AS "openedAt",
           notes
         FROM cash_sessions
-        WHERE id = ${cashSessionId}
-          AND status = ${CashSessionStatus.OPEN}
+        WHERE id = CAST(${cashSessionId} AS uuid)
+          AND status = CAST(${CashSessionStatus.OPEN} AS cash_session_status)
         LIMIT 1
       `,
     );

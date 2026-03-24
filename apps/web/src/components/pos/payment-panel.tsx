@@ -53,7 +53,7 @@ export function PaymentPanel({
             <option value="card">Tarjeta</option>
             <option value="transfer">Transferencia</option>
             <option value="mixed">Mixto</option>
-            <option value="other">Otro</option>
+            <option value="store_credit">Crédito de tienda</option>
           </select>
         </div>
 
@@ -74,7 +74,7 @@ export function PaymentPanel({
 
         <Button
           className="w-full"
-          disabled={loading}
+          disabled={loading || total <= 0}
           onClick={() => void onSubmit()}
         >
           {loading ? "Finalizando..." : "Finalizar venta"}

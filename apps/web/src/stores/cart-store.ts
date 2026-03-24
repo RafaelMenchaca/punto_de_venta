@@ -25,6 +25,10 @@ export const useCartStore = create<CartState>()(
       notes: "",
       addItem: (product) =>
         set((state) => {
+          if (product.trackInventory && product.availableStock <= 0) {
+            return state;
+          }
+
           const currentItem = state.items.find(
             (item) => item.product_id === product.id,
           );
@@ -60,7 +64,12 @@ export const useCartStore = create<CartState>()(
           items: state.items
             .map((item) =>
               item.product_id === productId
-                ? { ...item, quantity: Math.max(1, quantity) }
+                ? {
+                    ...item,
+                    quantity: Number.isFinite(quantity)
+                      ? Math.max(1, quantity)
+                      : item.quantity,
+                  }
                 : item,
             )
             .filter((item) => item.quantity > 0),

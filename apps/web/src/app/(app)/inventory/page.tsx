@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/components/shared/error-state";
-import { LoadingState } from "@/components/shared/loading-state";
 import { StockAdjustmentForm } from "@/components/inventory/stock-adjustment-form";
 import { StockLevelCard } from "@/components/inventory/stock-level-card";
 import { ProductSearch } from "@/components/pos/product-search";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
 import {
   useCreateStockAdjustmentMutation,
   useDefaultInventoryLocation,
@@ -61,11 +62,33 @@ export default function InventoryPage() {
           }}
         />
 
+        {defaultLocationQuery.isLoading ? (
+          <LoadingState message="Resolviendo ubicación por defecto..." />
+        ) : null}
+        {defaultLocationQuery.error instanceof Error ? (
+          <ErrorState
+            message={defaultLocationQuery.error.message}
+            actionLabel="Reintentar"
+            onAction={() => void defaultLocationQuery.refetch()}
+          />
+        ) : null}
+
+        {!selectedProduct ? (
+          <EmptyState
+            title="Selecciona un producto"
+            description="Busca un producto para consultar su stock y preparar un ajuste manual."
+          />
+        ) : null}
+
         {stockQuery.isLoading && selectedProduct ? (
           <LoadingState message="Consultando stock..." />
         ) : null}
         {stockQuery.error instanceof Error ? (
-          <ErrorState message={stockQuery.error.message} />
+          <ErrorState
+            message={stockQuery.error.message}
+            actionLabel="Reintentar"
+            onAction={() => void stockQuery.refetch()}
+          />
         ) : null}
         {stockQuery.data ? (
           <StockLevelCard
@@ -77,12 +100,11 @@ export default function InventoryPage() {
       </div>
 
       <div className="space-y-6">
-        {defaultLocationQuery.error instanceof Error ? (
-          <ErrorState message={defaultLocationQuery.error.message} />
-        ) : null}
-
         {!selectedProduct || !defaultLocationQuery.data || !stockQuery.data ? (
-          <ErrorState message="Selecciona un producto con una ubicación disponible para ajustar inventario." />
+          <EmptyState
+            title="Ajuste pendiente"
+            description="Necesitas una ubicación activa y un producto seleccionado para guardar un ajuste."
+          />
         ) : (
           <StockAdjustmentForm
             business_id={business_id}
@@ -93,8 +115,10 @@ export default function InventoryPage() {
             loading={adjustmentMutation.isPending}
             onSubmit={async (payload) => {
               try {
-                await adjustmentMutation.mutateAsync(payload);
-                toast.success("Ajuste guardado correctamente.");
+                const response = await adjustmentMutation.mutateAsync(payload);
+                toast.success(
+                  `Ajuste guardado. Diferencia: ${response.difference}.`,
+                );
               } catch (error) {
                 toast.error(
                   error instanceof Error

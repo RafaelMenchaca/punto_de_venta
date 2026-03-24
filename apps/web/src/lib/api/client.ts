@@ -10,6 +10,9 @@ interface RequestOptions {
   query?: Record<string, string | number | undefined | null>;
 }
 
+const REQUEST_TIMEOUT_MS = 8000;
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
 const buildQueryString = (query?: RequestOptions["query"]) => {
   const searchParams = new URLSearchParams();
 
@@ -23,20 +26,7 @@ const buildQueryString = (query?: RequestOptions["query"]) => {
   return serialized ? `?${serialized}` : "";
 };
 
-const getAuthHeaders = async () => {
-  const supabase = getBrowserSupabaseClient();
-
-  if (supabase) {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-
-    if (token) {
-      return {
-        Authorization: `Bearer ${token}`,
-      };
-    }
-  }
-
+const getDevHeaders = () => {
   const devHeaders: Record<string, string> = {};
 
   if (clientEnv.devUserId) {
@@ -58,24 +48,97 @@ const getAuthHeaders = async () => {
   return devHeaders;
 };
 
+const resolveApiBaseUrl = () => {
+  const configuredApiUrl = clientEnv.apiUrl.replace(/\/$/, "");
+
+  if (typeof window === "undefined") {
+    return configuredApiUrl;
+  }
+
+  try {
+    const resolvedUrl = new URL(configuredApiUrl);
+    const currentHostname = window.location.hostname;
+
+    if (
+      LOOPBACK_HOSTS.has(resolvedUrl.hostname) &&
+      !LOOPBACK_HOSTS.has(currentHostname)
+    ) {
+      resolvedUrl.hostname = currentHostname;
+    }
+
+    return resolvedUrl.toString().replace(/\/$/, "");
+  } catch {
+    return configuredApiUrl;
+  }
+};
+
+const getAuthHeaders = async () => {
+  const devHeaders = getDevHeaders();
+
+  if (devHeaders["x-dev-user-id"]) {
+    return devHeaders;
+  }
+
+  const supabase = getBrowserSupabaseClient();
+
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (token) {
+      return {
+        Authorization: `Bearer ${token}`,
+      };
+    }
+  }
+
+  return devHeaders;
+};
+
 export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
   const headers = await getAuthHeaders();
-  const response = await fetch(
-    `${clientEnv.apiUrl}${path}${buildQueryString(options.query)}`,
-    {
-      method: options.method ?? "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      credentials: "include",
-      cache: "no-store",
-    },
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    REQUEST_TIMEOUT_MS,
   );
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${resolveApiBaseUrl()}${path}${buildQueryString(options.query)}`,
+      {
+        method: options.method ?? "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(
+        "La API tardó demasiado en responder. Verifica conexión y backend.",
+        0,
+        error,
+      );
+    }
+
+    throw new ApiError(
+      "No fue posible conectar con la API. Verifica que el backend esté levantado.",
+      0,
+      error,
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorPayload = (await response.json().catch(() => null)) as {

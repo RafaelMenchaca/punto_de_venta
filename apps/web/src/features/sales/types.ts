@@ -1,4 +1,9 @@
-export type PaymentMethod = "cash" | "card" | "transfer" | "mixed" | "other";
+export type PaymentMethod =
+  | "cash"
+  | "card"
+  | "transfer"
+  | "mixed"
+  | "store_credit";
 
 export interface SaleCartItem {
   product_id: string;

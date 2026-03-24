@@ -49,25 +49,26 @@ export class InventoryRepository {
           p.name,
           p.sku,
           (
-            SELECT barcode
+            SELECT pb.barcode
             FROM product_barcodes pb
             WHERE pb.product_id = p.id
-            ORDER BY barcode
+            ORDER BY pb.is_primary DESC, pb.barcode
             LIMIT 1
           ) AS barcode,
-          COALESCE(p.unit_price, 0)::double precision AS "unitPrice",
+          COALESCE(p.sale_price, 0)::double precision AS "unitPrice",
           COALESCE(p.track_inventory, false) AS "trackInventory",
           COALESCE(tr.rate, 0)::double precision AS "taxRate",
           COALESCE((
-            SELECT SUM(sb.quantity)
+            SELECT SUM(sb.quantity - sb.reserved_quantity)
             FROM stock_balances sb
-            WHERE sb.business_id = ${businessId}
-              AND sb.branch_id = ${branchId}
+            WHERE sb.business_id = CAST(${businessId} AS uuid)
+              AND sb.branch_id = CAST(${branchId} AS uuid)
               AND sb.product_id = p.id
           ), 0)::double precision AS "availableStock"
         FROM products p
         LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
-        WHERE p.business_id = ${businessId}
+        WHERE p.business_id = CAST(${businessId} AS uuid)
+          AND p.is_active = true
           AND (
             p.name ILIKE ${searchPattern}
             OR p.sku ILIKE ${searchPattern}
@@ -98,8 +99,8 @@ export class InventoryRepository {
           name,
           COALESCE(track_inventory, false) AS "trackInventory"
         FROM products
-        WHERE id = ${productId}
-          AND business_id = ${businessId}
+        WHERE id = CAST(${productId} AS uuid)
+          AND business_id = CAST(${businessId} AS uuid)
         LIMIT 1
       `,
     );
@@ -118,9 +119,10 @@ export class InventoryRepository {
       Prisma.sql`
         SELECT id
         FROM inventory_locations
-        WHERE id = ${locationId}
-          AND business_id = ${businessId}
-          AND branch_id = ${branchId}
+        WHERE id = CAST(${locationId} AS uuid)
+          AND business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          AND is_active = true
         LIMIT 1
       `,
     );
@@ -141,10 +143,10 @@ export class InventoryRepository {
           product_id AS "productId",
           quantity::double precision AS quantity
         FROM stock_balances
-        WHERE business_id = ${businessId}
-          AND branch_id = ${branchId}
-          AND location_id = ${locationId}
-          AND product_id = ${productId}
+        WHERE business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          AND location_id = CAST(${locationId} AS uuid)
+          AND product_id = CAST(${productId} AS uuid)
         FOR UPDATE
       `,
     );
@@ -169,14 +171,18 @@ export class InventoryRepository {
           branch_id,
           location_id,
           product_id,
-          quantity
+          quantity,
+          reserved_quantity,
+          updated_at
         )
         VALUES (
-          ${input.businessId},
-          ${input.branchId},
-          ${input.locationId},
-          ${input.productId},
-          ${input.quantity}
+          CAST(${input.businessId} AS uuid),
+          CAST(${input.branchId} AS uuid),
+          CAST(${input.locationId} AS uuid),
+          CAST(${input.productId} AS uuid),
+          ${input.quantity},
+          0,
+          NOW()
         )
       `,
     );
@@ -195,11 +201,13 @@ export class InventoryRepository {
     await tx.$executeRaw(
       Prisma.sql`
         UPDATE stock_balances
-        SET quantity = ${input.quantity}
-        WHERE business_id = ${input.businessId}
-          AND branch_id = ${input.branchId}
-          AND location_id = ${input.locationId}
-          AND product_id = ${input.productId}
+        SET
+          quantity = ${input.quantity},
+          updated_at = NOW()
+        WHERE business_id = CAST(${input.businessId} AS uuid)
+          AND branch_id = CAST(${input.branchId} AS uuid)
+          AND location_id = CAST(${input.locationId} AS uuid)
+          AND product_id = CAST(${input.productId} AS uuid)
       `,
     );
   }
@@ -228,21 +236,21 @@ export class InventoryRepository {
           quantity,
           reference_type,
           reference_id,
-          reason,
+          notes,
           created_by,
           created_at
         )
         VALUES (
-          ${input.businessId},
-          ${input.branchId},
-          ${input.locationId},
-          ${input.productId},
-          ${input.movementType},
+          CAST(${input.businessId} AS uuid),
+          CAST(${input.branchId} AS uuid),
+          CAST(${input.locationId} AS uuid),
+          CAST(${input.productId} AS uuid),
+          CAST(${input.movementType} AS inventory_movement_type),
           ${input.quantity},
           'stock_adjustment',
-          ${input.productId},
+          CAST(${input.productId} AS uuid),
           ${input.reason},
-          ${input.actorUserId},
+          CAST(${input.actorUserId} AS uuid),
           NOW()
         )
       `,

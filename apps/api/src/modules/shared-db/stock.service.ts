@@ -28,9 +28,10 @@ export class StockService {
           branch_id AS "branchId",
           name
         FROM inventory_locations
-        WHERE business_id = ${businessId}
-          AND branch_id = ${branchId}
-        ORDER BY id
+        WHERE business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          AND is_active = true
+        ORDER BY is_default DESC, name ASC, id ASC
         LIMIT 1
       `,
     );
@@ -56,19 +57,19 @@ export class StockService {
     const rows = await executor.$queryRaw<Array<{ quantity: number }>>(
       locationId
         ? Prisma.sql`
-            SELECT COALESCE(SUM(quantity), 0)::double precision AS quantity
+            SELECT COALESCE(SUM(quantity - reserved_quantity), 0)::double precision AS quantity
             FROM stock_balances
-            WHERE business_id = ${businessId}
-              AND branch_id = ${branchId}
-              AND location_id = ${locationId}
-              AND product_id = ${productId}
+            WHERE business_id = CAST(${businessId} AS uuid)
+              AND branch_id = CAST(${branchId} AS uuid)
+              AND location_id = CAST(${locationId} AS uuid)
+              AND product_id = CAST(${productId} AS uuid)
           `
         : Prisma.sql`
-            SELECT COALESCE(SUM(quantity), 0)::double precision AS quantity
+            SELECT COALESCE(SUM(quantity - reserved_quantity), 0)::double precision AS quantity
             FROM stock_balances
-            WHERE business_id = ${businessId}
-              AND branch_id = ${branchId}
-              AND product_id = ${productId}
+            WHERE business_id = CAST(${businessId} AS uuid)
+              AND branch_id = CAST(${branchId} AS uuid)
+              AND product_id = CAST(${productId} AS uuid)
           `,
     );
 

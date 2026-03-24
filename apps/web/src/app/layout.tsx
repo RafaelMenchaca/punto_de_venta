@@ -27,6 +27,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${manrope.variable} ${ibmPlexMono.variable} h-full`}
     >
       <body className="min-h-full font-sans">

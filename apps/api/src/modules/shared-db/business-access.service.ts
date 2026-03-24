@@ -15,8 +15,8 @@ export class BusinessAccessService {
       Prisma.sql`
         SELECT business_id AS "businessId"
         FROM user_business_roles
-        WHERE user_id = ${userId}
-          AND business_id = ${businessId}
+        WHERE user_id = CAST(${userId} AS uuid)
+          AND business_id = CAST(${businessId} AS uuid)
         LIMIT 1
       `,
     );
@@ -33,8 +33,8 @@ export class BusinessAccessService {
       Prisma.sql`
         SELECT id
         FROM branches
-        WHERE id = ${branchId}
-          AND business_id = ${businessId}
+        WHERE id = CAST(${branchId} AS uuid)
+          AND business_id = CAST(${businessId} AS uuid)
         LIMIT 1
       `,
     );
