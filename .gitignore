@@ -18,3 +18,8 @@ apps/web/.env
 apps/web/.env.local
 apps/api/.env
 apps/api/.env.local
+
+db_setup.sql
+*db_setup.sql
+**db_setup.sql
+

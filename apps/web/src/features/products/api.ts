@@ -5,7 +5,7 @@ import type { ProductSearchResult } from "./types";
 export const searchProducts = (params: {
   business_id: string;
   branch_id: string;
-  query: string;
+  query?: string;
 }) =>
   apiRequest<ProductSearchResult[]>(apiEndpoints.inventoryProductsSearch, {
     query: params,

@@ -1,12 +1,13 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
-import { useCurrentUser } from "@/hooks/use-current-user";
 
 export function AppHeader() {
   const { business_id, branch_id, register_id } = useCurrentBusiness();
-  const user = useCurrentUser();
+  const contextQuery = useOperatingContext(business_id, branch_id, register_id);
+  const context = contextQuery.data;
 
   return (
     <header className="rounded-[1.75rem] border border-white/60 bg-white/70 p-5 shadow-[0_18px_48px_rgba(23,23,23,0.08)] backdrop-blur">
@@ -16,22 +17,28 @@ export function AppHeader() {
             Contexto operativo
           </p>
           <h2 className="mt-2 text-xl font-semibold tracking-tight">
-            Frontend web preparado para caja, ventas e inventario
+            {context?.business.name ?? "Punto de venta"}
           </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {context?.branch.name ?? "Sucursal sin resolver"}
+            {context?.register
+              ? ` | ${context.register.name ?? "Caja"} (${context.register.code ?? "sin codigo"})`
+              : ""}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="default">
-            Usuario: {user.id ? user.id.slice(0, 8) : "pendiente"}
+            Usuario: {context?.user.full_name ?? "pendiente"}
           </Badge>
           <Badge variant="warning">
-            Negocio: {business_id ? business_id.slice(0, 8) : "pendiente"}
+            Negocio: {context?.business.name ?? "pendiente"}
           </Badge>
           <Badge variant="default">
-            Sucursal: {branch_id ? branch_id.slice(0, 8) : "pendiente"}
+            Sucursal: {context?.branch.name ?? "pendiente"}
           </Badge>
           <Badge variant="success">
-            Caja: {register_id ? register_id.slice(0, 8) : "pendiente"}
+            Caja: {context?.register?.name ?? "pendiente"}
           </Badge>
         </div>
       </div>

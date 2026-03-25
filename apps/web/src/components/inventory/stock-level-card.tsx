@@ -38,7 +38,7 @@ export function StockLevelCard({
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Ubicación
+            Ubicacion
           </p>
           <p className="mt-2 font-medium">{location_name ?? "Sin nombre"}</p>
         </div>

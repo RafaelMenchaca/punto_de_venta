@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,7 +10,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BusinessAccessService } from '../shared-db/business-access.service';
 import { StockService } from '../shared-db/stock.service';
+import type { CreateProductDto } from './dto/create-product.dto';
 import type { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
+import type { DeactivateProductDto } from './dto/deactivate-product.dto';
 import type { GetDefaultLocationDto } from './dto/get-default-location.dto';
 import type { GetProductStockDto } from './dto/get-product-stock.dto';
 import type { SearchProductsDto } from './dto/search-products.dto';
@@ -38,8 +41,186 @@ export class InventoryService {
     return this.inventoryRepository.searchProducts(
       query.business_id,
       query.branch_id,
-      query.query,
+      query.query ?? '',
     );
+  }
+
+  async createProduct(input: CreateProductDto, user: RequestUser) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+    await this.businessAccessService.assertBranchBelongsToBusiness(
+      input.branch_id,
+      input.business_id,
+    );
+
+    if (!input.track_inventory && (input.initial_stock ?? 0) > 0) {
+      throw new BadRequestException(
+        'No puedes asignar stock inicial a un producto que no controla inventario.',
+      );
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const product = await this.inventoryRepository.createProduct(
+          {
+            businessId: input.business_id,
+            categoryId: input.category_id ?? null,
+            brandId: input.brand_id ?? null,
+            taxRateId: input.tax_rate_id ?? null,
+            sku: input.sku.trim(),
+            name: input.name.trim(),
+            description: input.description?.trim() || null,
+            costPrice: input.cost_price,
+            salePrice: input.sale_price,
+            minStock: input.min_stock,
+            trackInventory: input.track_inventory,
+            createdBy: user.id,
+          },
+          tx,
+        );
+
+        if (input.barcode?.trim()) {
+          await this.inventoryRepository.createProductBarcode(
+            {
+              productId: product.id,
+              barcode: input.barcode.trim(),
+              isPrimary: true,
+            },
+            tx,
+          );
+        }
+
+        const initialStock = input.initial_stock ?? 0;
+        let defaultLocation: Awaited<
+          ReturnType<StockService['getDefaultInventoryLocationByBranch']>
+        > | null = null;
+
+        if (input.track_inventory && initialStock > 0) {
+          defaultLocation =
+            await this.stockService.getDefaultInventoryLocationByBranch(
+              input.business_id,
+              input.branch_id,
+              tx,
+            );
+
+          await this.inventoryRepository.insertStockBalance(
+            {
+              businessId: input.business_id,
+              branchId: input.branch_id,
+              locationId: defaultLocation.id,
+              productId: product.id,
+              quantity: initialStock,
+            },
+            tx,
+          );
+
+          await this.inventoryRepository.createInventoryMovement(
+            {
+              businessId: input.business_id,
+              branchId: input.branch_id,
+              locationId: defaultLocation.id,
+              productId: product.id,
+              movementType: InventoryMovementType.ADJUSTMENT_IN,
+              quantity: initialStock,
+              reason: 'Stock inicial de alta de producto',
+              actorUserId: user.id,
+            },
+            tx,
+          );
+        }
+
+        const result = {
+          product_id: product.id,
+          business_id: product.businessId,
+          name: product.name,
+          sku: product.sku,
+          sale_price: product.salePrice,
+          cost_price: product.costPrice,
+          track_inventory: product.trackInventory,
+          initial_stock: initialStock,
+          location_id: defaultLocation?.id ?? null,
+          created_at: product.createdAt,
+        };
+
+        await this.auditService.logAction({
+          businessId: input.business_id,
+          actorUserId: user.id,
+          action: 'create_product',
+          entityType: 'product',
+          entityId: product.id,
+          afterJson: result,
+          tx,
+        });
+
+        return result;
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('duplicate key value')
+      ) {
+        throw new ConflictException(
+          'El SKU o código de barras ya existe para este negocio.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async deactivateProduct(
+    productId: string,
+    input: DeactivateProductDto,
+    user: RequestUser,
+  ) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const currentProduct = await this.inventoryRepository.getProductById(
+        input.business_id,
+        productId,
+        tx,
+      );
+
+      if (!currentProduct) {
+        throw new NotFoundException('Producto no encontrado.');
+      }
+
+      const deactivatedProduct =
+        await this.inventoryRepository.deactivateProduct(
+          input.business_id,
+          productId,
+          tx,
+        );
+
+      if (!deactivatedProduct) {
+        throw new NotFoundException('Producto no encontrado.');
+      }
+
+      const result = {
+        product_id: deactivatedProduct.id,
+        name: deactivatedProduct.name,
+        is_active: deactivatedProduct.isActive,
+      };
+
+      await this.auditService.logAction({
+        businessId: input.business_id,
+        actorUserId: user.id,
+        action: 'deactivate_product',
+        entityType: 'product',
+        entityId: deactivatedProduct.id,
+        beforeJson: currentProduct,
+        afterJson: result,
+        tx,
+      });
+
+      return result;
+    });
   }
 
   async getProductStock(

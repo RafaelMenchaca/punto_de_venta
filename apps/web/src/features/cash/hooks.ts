@@ -37,6 +37,9 @@ export function useOpenCashSessionMutation(
       await queryClient.invalidateQueries({
         queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
       });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
+      });
     },
   });
 }
@@ -53,6 +56,9 @@ export function useCloseCashSessionMutation(
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
       });
     },
   });

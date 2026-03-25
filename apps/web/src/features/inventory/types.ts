@@ -13,6 +13,24 @@ export interface ProductStock {
   location_id: string | null;
 }
 
+export interface CreateInventoryProductPayload {
+  business_id: string;
+  branch_id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  cost_price: number;
+  sale_price: number;
+  min_stock: number;
+  track_inventory: boolean;
+  barcode?: string;
+  initial_stock?: number;
+}
+
+export interface DeactivateInventoryProductPayload {
+  business_id: string;
+}
+
 export interface StockAdjustmentPayload {
   business_id: string;
   branch_id: string;

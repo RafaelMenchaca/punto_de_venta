@@ -1,4 +1,4 @@
-import { IsString, IsUUID, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class SearchProductsDto {
   @IsUUID()
@@ -7,7 +7,7 @@ export class SearchProductsDto {
   @IsUUID()
   branch_id!: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  query!: string;
+  query?: string;
 }

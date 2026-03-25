@@ -35,12 +35,12 @@ export function PaymentPanel({
       <CardHeader>
         <CardTitle>Pago</CardTitle>
         <CardDescription>
-          Selecciona el método de pago y finaliza la venta.
+          Selecciona el metodo de pago y finaliza la venta.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="payment-method">Método de pago</Label>
+          <Label htmlFor="payment-method">Metodo de pago</Label>
           <select
             id="payment-method"
             className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -53,7 +53,7 @@ export function PaymentPanel({
             <option value="card">Tarjeta</option>
             <option value="transfer">Transferencia</option>
             <option value="mixed">Mixto</option>
-            <option value="store_credit">Crédito de tienda</option>
+            <option value="store_credit">Credito de tienda</option>
           </select>
         </div>
 

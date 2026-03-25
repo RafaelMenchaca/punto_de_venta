@@ -8,19 +8,27 @@ import {
 import type { CashSession } from "@/features/cash/types";
 import { formatCurrency } from "@/lib/utils";
 
-export function CashSessionCard({ session }: { session: CashSession }) {
+export function CashSessionCard({
+  session,
+  openedByLabel,
+  registerLabel,
+}: {
+  session: CashSession;
+  openedByLabel?: string | null;
+  registerLabel?: string | null;
+}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sesión abierta</CardTitle>
+        <CardTitle>Sesion abierta</CardTitle>
         <CardDescription>Caja activa para el turno actual.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-4">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Sesión
+            Caja
           </p>
-          <p className="mt-2 font-medium">{session.id.slice(0, 8)}</p>
+          <p className="mt-2 font-medium">{registerLabel ?? "Caja activa"}</p>
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
@@ -34,7 +42,9 @@ export function CashSessionCard({ session }: { session: CashSession }) {
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
             Abierta por
           </p>
-          <p className="mt-2 font-medium">{session.openedBy.slice(0, 8)}</p>
+          <p className="mt-2 font-medium">
+            {openedByLabel ?? "Usuario actual"}
+          </p>
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">

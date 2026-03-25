@@ -23,22 +23,29 @@ export function ProductSearch({
   onSelect,
   actionLabel = "Agregar",
   disableOutOfStock = false,
+  minimumQueryLength = 2,
 }: {
   business_id: string;
   branch_id: string;
   onSelect: (product: ProductSearchResult) => void;
   actionLabel?: string;
   disableOutOfStock?: boolean;
+  minimumQueryLength?: number;
 }) {
   const [term, setTerm] = useState("");
-  const query = useProductSearch(business_id, branch_id, term);
+  const query = useProductSearch(
+    business_id,
+    branch_id,
+    term,
+    minimumQueryLength,
+  );
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Buscar producto</CardTitle>
         <CardDescription>
-          Busca por nombre, SKU o código de barras.
+          Busca por nombre, SKU o codigo de barras.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -58,10 +65,14 @@ export function ProductSearch({
             onAction={() => void query.refetch()}
           />
         ) : null}
-        {term.trim().length > 1 && query.data?.length === 0 ? (
+        {term.trim().length >= minimumQueryLength && query.data?.length === 0 ? (
           <EmptyState
             title="Sin resultados"
-            description="Prueba con otro nombre, SKU o código de barras."
+            description={
+              minimumQueryLength === 0
+                ? "Todavia no hay productos activos para mostrar."
+                : "Prueba con otro nombre, SKU o codigo de barras."
+            }
           />
         ) : null}
 
@@ -80,9 +91,16 @@ export function ProductSearch({
                 <div>
                   <p className="font-medium">{product.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    SKU: {product.sku ?? "sin SKU"} · Stock:{" "}
+                    SKU: {product.sku ?? "sin SKU"} | Stock:{" "}
                     {product.availableStock}
                   </p>
+                  {product.categoryName || product.brandName ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {[product.categoryName, product.brandName]
+                        .filter(Boolean)
+                        .join(" | ")}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-3">

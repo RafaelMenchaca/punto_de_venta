@@ -14,13 +14,36 @@ export interface InventoryProductRecord {
   trackInventory: boolean;
   taxRate: number;
   availableStock: number;
+  isActive: boolean;
+  categoryName: string | null;
+  brandName: string | null;
 }
 
 export interface InventoryProductDetailRecord {
   id: string;
   businessId: string;
   name: string;
+  sku: string;
+  description: string | null;
+  costPrice: number;
+  salePrice: number;
+  minStock: number;
   trackInventory: boolean;
+  isActive: boolean;
+}
+
+export interface CreatedProductRecord {
+  id: string;
+  businessId: string;
+  name: string;
+  sku: string;
+  description: string | null;
+  costPrice: number;
+  salePrice: number;
+  minStock: number;
+  trackInventory: boolean;
+  isActive: boolean;
+  createdAt: Date;
 }
 
 export interface StockBalanceRecord {
@@ -35,11 +58,12 @@ export class InventoryRepository {
   async searchProducts(
     businessId: string,
     branchId: string,
-    query: string,
+    query = '',
     tx?: PrismaExecutor,
   ) {
     const executor = tx ?? this.prisma;
-    const searchPattern = `%${query}%`;
+    const trimmedQuery = query.trim();
+    const searchPattern = `%${trimmedQuery}%`;
 
     return executor.$queryRaw<InventoryProductRecord[]>(
       Prisma.sql`
@@ -58,6 +82,9 @@ export class InventoryRepository {
           COALESCE(p.sale_price, 0)::double precision AS "unitPrice",
           COALESCE(p.track_inventory, false) AS "trackInventory",
           COALESCE(tr.rate, 0)::double precision AS "taxRate",
+          COALESCE(p.is_active, false) AS "isActive",
+          c.name AS "categoryName",
+          b.name AS "brandName",
           COALESCE((
             SELECT SUM(sb.quantity - sb.reserved_quantity)
             FROM stock_balances sb
@@ -67,18 +94,26 @@ export class InventoryRepository {
           ), 0)::double precision AS "availableStock"
         FROM products p
         LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN brands b ON b.id = p.brand_id
         WHERE p.business_id = CAST(${businessId} AS uuid)
           AND p.is_active = true
-          AND (
-            p.name ILIKE ${searchPattern}
-            OR p.sku ILIKE ${searchPattern}
-            OR EXISTS (
-              SELECT 1
-              FROM product_barcodes pb2
-              WHERE pb2.product_id = p.id
-                AND pb2.barcode ILIKE ${searchPattern}
-            )
-          )
+          ${
+            trimmedQuery.length > 0
+              ? Prisma.sql`
+                  AND (
+                    p.name ILIKE ${searchPattern}
+                    OR p.sku ILIKE ${searchPattern}
+                    OR EXISTS (
+                      SELECT 1
+                      FROM product_barcodes pb2
+                      WHERE pb2.product_id = p.id
+                        AND pb2.barcode ILIKE ${searchPattern}
+                    )
+                  )
+                `
+              : Prisma.empty
+          }
         ORDER BY p.name
         LIMIT 20
       `,
@@ -97,11 +132,141 @@ export class InventoryRepository {
           id,
           business_id AS "businessId",
           name,
-          COALESCE(track_inventory, false) AS "trackInventory"
+          sku,
+          description,
+          cost_price::double precision AS "costPrice",
+          sale_price::double precision AS "salePrice",
+          min_stock::double precision AS "minStock",
+          COALESCE(track_inventory, false) AS "trackInventory",
+          COALESCE(is_active, false) AS "isActive"
         FROM products
         WHERE id = CAST(${productId} AS uuid)
           AND business_id = CAST(${businessId} AS uuid)
         LIMIT 1
+      `,
+    );
+
+    return rows[0] ?? null;
+  }
+
+  async createProduct(
+    input: {
+      businessId: string;
+      categoryId?: string | null;
+      brandId?: string | null;
+      taxRateId?: string | null;
+      sku: string;
+      name: string;
+      description?: string | null;
+      costPrice: number;
+      salePrice: number;
+      minStock: number;
+      trackInventory: boolean;
+      createdBy: string;
+    },
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<CreatedProductRecord[]>(
+      Prisma.sql`
+        INSERT INTO products (
+          business_id,
+          category_id,
+          brand_id,
+          tax_rate_id,
+          sku,
+          name,
+          description,
+          cost_price,
+          sale_price,
+          min_stock,
+          track_inventory,
+          is_active,
+          created_by,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          CAST(${input.businessId} AS uuid),
+          CAST(${input.categoryId ?? null} AS uuid),
+          CAST(${input.brandId ?? null} AS uuid),
+          CAST(${input.taxRateId ?? null} AS uuid),
+          ${input.sku},
+          ${input.name},
+          ${input.description ?? null},
+          ${input.costPrice},
+          ${input.salePrice},
+          ${input.minStock},
+          ${input.trackInventory},
+          true,
+          CAST(${input.createdBy} AS uuid),
+          NOW(),
+          NOW()
+        )
+        RETURNING
+          id,
+          business_id AS "businessId",
+          name,
+          sku,
+          description,
+          cost_price::double precision AS "costPrice",
+          sale_price::double precision AS "salePrice",
+          min_stock::double precision AS "minStock",
+          track_inventory AS "trackInventory",
+          is_active AS "isActive",
+          created_at AS "createdAt"
+      `,
+    );
+
+    return rows[0]!;
+  }
+
+  async createProductBarcode(
+    input: {
+      productId: string;
+      barcode: string;
+      isPrimary?: boolean;
+    },
+    tx: PrismaExecutor,
+  ) {
+    await tx.$executeRaw(
+      Prisma.sql`
+        INSERT INTO product_barcodes (
+          product_id,
+          barcode,
+          is_primary,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          CAST(${input.productId} AS uuid),
+          ${input.barcode},
+          ${input.isPrimary ?? true},
+          NOW(),
+          NOW()
+        )
+      `,
+    );
+  }
+
+  async deactivateProduct(
+    businessId: string,
+    productId: string,
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<
+      Array<{ id: string; name: string; isActive: boolean }>
+    >(
+      Prisma.sql`
+        UPDATE products
+        SET
+          is_active = false,
+          updated_at = NOW()
+        WHERE id = CAST(${productId} AS uuid)
+          AND business_id = CAST(${businessId} AS uuid)
+        RETURNING
+          id,
+          name,
+          is_active AS "isActive"
       `,
     );
 

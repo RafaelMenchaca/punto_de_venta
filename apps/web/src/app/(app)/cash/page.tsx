@@ -19,13 +19,14 @@ import {
   useOpenCashSessionMutation,
   useOpenCashSessionQuery,
 } from "@/features/cash/hooks";
+import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
 
 export default function CashPage() {
   const hydrated = useHydratedStore();
-  const { business_id, branch_id, register_id, setRegisterId } =
-    useCurrentBusiness();
+  const { business_id, branch_id, register_id } = useCurrentBusiness();
+  const contextQuery = useOperatingContext(business_id, branch_id, register_id);
   const openSessionQuery = useOpenCashSessionQuery(
     register_id,
     business_id,
@@ -48,7 +49,13 @@ export default function CashPage() {
 
   if (!business_id || !branch_id) {
     return (
-      <ErrorState message="Falta configurar NEXT_PUBLIC_DEV_BUSINESS_ID y NEXT_PUBLIC_DEV_BRANCH_ID para esta fase." />
+      <ErrorState message="Falta contexto operativo. Configura negocio y sucursal para abrir o cerrar caja." />
+    );
+  }
+
+  if (!register_id) {
+    return (
+      <ErrorState message="No hay una caja configurada para esta operacion. Revisa el contexto de desarrollo o autenticacion." />
     );
   }
 
@@ -59,22 +66,47 @@ export default function CashPage() {
           <CardHeader>
             <CardTitle>Contexto de caja</CardTitle>
             <CardDescription>
-              Puedes cambiar la caja activa mientras no exista selector visual
-              completo.
+              Negocio, sucursal, caja y usuario activos para este turno.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <input
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={register_id ?? ""}
-              onChange={(event) => setRegisterId(event.target.value.trim())}
-              placeholder="UUID de register"
-            />
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Negocio
+              </p>
+              <p className="mt-2 font-medium">
+                {contextQuery.data?.business.name ?? "Resolviendo negocio..."}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Sucursal
+              </p>
+              <p className="mt-2 font-medium">
+                {contextQuery.data?.branch.name ?? "Resolviendo sucursal..."}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Caja
+              </p>
+              <p className="mt-2 font-medium">
+                {contextQuery.data?.register?.name ?? "Caja sin resolver"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Usuario
+              </p>
+              <p className="mt-2 font-medium">
+                {contextQuery.data?.user.full_name ?? "Usuario sin resolver"}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         {openSessionQuery.isLoading ? (
-          <LoadingState message="Consultando sesión abierta..." />
+          <LoadingState message="Consultando sesion abierta..." />
         ) : null}
         {openSessionQuery.error instanceof Error ? (
           <ErrorState
@@ -87,19 +119,23 @@ export default function CashPage() {
         !openSessionQuery.error &&
         !openSessionQuery.data ? (
           <EmptyState
-            title="Sin sesión abierta"
-            description="Esta caja todavía no tiene un turno abierto. Puedes abrirla desde el panel derecho."
+            title="Sin sesion abierta"
+            description="Esta caja todavia no tiene un turno abierto. Puedes abrirla desde el panel derecho."
           />
         ) : null}
         {openSessionQuery.data ? (
-          <CashSessionCard session={openSessionQuery.data} />
+          <CashSessionCard
+            session={openSessionQuery.data}
+            openedByLabel={contextQuery.data?.user.full_name}
+            registerLabel={
+              contextQuery.data?.register?.name ?? contextQuery.data?.register?.code
+            }
+          />
         ) : null}
       </div>
 
       <div className="space-y-6">
-        {!register_id ? (
-          <ErrorState message="Necesitas definir una caja para operar." />
-        ) : openSessionQuery.data ? (
+        {openSessionQuery.data ? (
           <CloseCashForm
             key={openSessionQuery.data.id}
             session={openSessionQuery.data}

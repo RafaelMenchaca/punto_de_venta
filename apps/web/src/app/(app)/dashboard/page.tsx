@@ -8,16 +8,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useOpenCashSessionQuery } from "@/features/cash/hooks";
+import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 
 export default function DashboardPage() {
   const { business_id, branch_id, register_id } = useCurrentBusiness();
-  const { data: openSession } = useOpenCashSessionQuery(
-    register_id,
-    business_id,
-    branch_id,
-  );
+  const contextQuery = useOperatingContext(business_id, branch_id, register_id);
+  const context = contextQuery.data;
+  const sessionLabel = context?.open_cash_session
+    ? `Caja abierta desde ${new Date(
+        context.open_cash_session.openedAt,
+      ).toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
+    : "Sin sesion activa";
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
@@ -44,7 +49,7 @@ export default function DashboardPage() {
           >
             <p className="text-sm font-semibold">POS</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Búsqueda de productos, carrito y cobro.
+              Busqueda de productos, carrito y cobro.
             </p>
           </Link>
           <Link
@@ -53,7 +58,7 @@ export default function DashboardPage() {
           >
             <p className="text-sm font-semibold">Inventario</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Consulta de stock y ajustes manuales.
+              Alta de productos, stock y ajustes manuales.
             </p>
           </Link>
         </CardContent>
@@ -61,41 +66,49 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Resumen rápido</CardTitle>
+          <CardTitle>Resumen rapido</CardTitle>
           <CardDescription>
-            Estado mínimo del contexto para la fase actual.
+            Estado actual del usuario, negocio, sucursal y caja.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="rounded-2xl bg-white/60 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              Usuario
+            </p>
+            <p className="mt-2 font-medium">
+              {context?.user.full_name ?? "No resuelto"}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white/60 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
               Negocio
             </p>
             <p className="mt-2 font-medium">
-              {business_id ?? "No configurado"}
+              {context?.business.name ?? "No configurado"}
             </p>
           </div>
           <div className="rounded-2xl bg-white/60 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
               Sucursal
             </p>
-            <p className="mt-2 font-medium">{branch_id ?? "No configurada"}</p>
+            <p className="mt-2 font-medium">
+              {context?.branch.name ?? "No configurada"}
+            </p>
           </div>
           <div className="rounded-2xl bg-white/60 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
               Caja
             </p>
             <p className="mt-2 font-medium">
-              {register_id ?? "No configurada"}
+              {context?.register?.name ?? "No configurada"}
             </p>
           </div>
           <div className="rounded-2xl bg-white/60 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Sesión abierta
+              Estado de caja
             </p>
-            <p className="mt-2 font-medium">
-              {openSession ? openSession.id.slice(0, 8) : "Sin sesión activa"}
-            </p>
+            <p className="mt-2 font-medium">{sessionLabel}</p>
           </div>
         </CardContent>
       </Card>

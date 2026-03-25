@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import {
+  createInventoryProduct,
   createStockAdjustment,
+  deactivateInventoryProduct,
   getDefaultInventoryLocation,
   getProductStock,
 } from "./api";
@@ -20,6 +22,46 @@ export function useDefaultInventoryLocation(
         branch_id: branchId!,
       }),
     enabled: Boolean(businessId && branchId),
+  });
+}
+
+export function useCreateInventoryProductMutation(
+  businessId: string | null,
+  branchId: string | null,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createInventoryProduct,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["inventory"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.defaultInventoryLocation(businessId, branchId),
+      });
+    },
+  });
+}
+
+export function useDeactivateInventoryProductMutation(
+  productId: string | null,
+  businessId: string | null,
+  branchId: string | null,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { business_id: string }) =>
+      deactivateInventoryProduct(productId!, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["inventory"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.defaultInventoryLocation(businessId, branchId),
+      });
+    },
   });
 }
 

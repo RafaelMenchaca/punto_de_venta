@@ -125,14 +125,14 @@ export async function apiRequest<T>(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new ApiError(
-        "La API tardó demasiado en responder. Verifica conexión y backend.",
+        "La API tardo demasiado en responder. Verifica conexion y backend.",
         0,
         error,
       );
     }
 
     throw new ApiError(
-      "No fue posible conectar con la API. Verifica que el backend esté levantado.",
+      "No fue posible conectar con la API. Verifica que el backend este levantado.",
       0,
       error,
     );
@@ -145,11 +145,17 @@ export async function apiRequest<T>(
       message?: string | string[];
     } | null;
     const message = Array.isArray(errorPayload?.message)
-      ? errorPayload?.message.join(", ")
+      ? errorPayload.message.join(", ")
       : (errorPayload?.message ?? "No fue posible completar la solicitud.");
 
     throw new ApiError(message, response.status, errorPayload);
   }
 
-  return response.json() as Promise<T>;
+  const responseText = await response.text();
+
+  if (!responseText.trim()) {
+    return null as T;
+  }
+
+  return JSON.parse(responseText) as T;
 }
