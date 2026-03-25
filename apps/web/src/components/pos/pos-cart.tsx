@@ -33,8 +33,8 @@ export function PosCart({
       <CardContent className="space-y-4">
         {items.length === 0 ? (
           <EmptyState
-            title="Carrito vacío"
-            description="Busca productos y agrégalos al carrito para vender."
+            title="Carrito vacio"
+            description="Busca productos y agregalos al carrito para vender."
           />
         ) : null}
 
@@ -46,7 +46,7 @@ export function PosCart({
             <div>
               <p className="font-medium">{item.product_name}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                SKU: {item.sku ?? "sin SKU"} · Stock: {item.available_stock}
+                SKU: {item.sku ?? "sin SKU"} | Stock: {item.available_stock}
               </p>
             </div>
 

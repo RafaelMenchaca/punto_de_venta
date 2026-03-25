@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navigationItems } from "@/config/navigation";
+import { useOperatingContext } from "@/features/context/hooks";
+import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { business_id, branch_id, register_id } = useCurrentBusiness();
+  const contextQuery = useOperatingContext(business_id, branch_id, register_id);
 
   return (
     <aside className="w-full max-w-72 rounded-[1.75rem] border border-white/60 bg-white/70 p-4 shadow-[0_18px_48px_rgba(23,23,23,0.08)] backdrop-blur md:sticky md:top-6 md:h-[calc(100vh-3rem)]">
@@ -15,8 +19,11 @@ export function AppSidebar() {
           Punto de Venta
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">
-          Operación diaria
+          {contextQuery.data?.business.name ?? "Operacion diaria"}
         </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {contextQuery.data?.branch.name ?? "Sucursal actual"}
+        </p>
       </div>
 
       <nav className="space-y-2">

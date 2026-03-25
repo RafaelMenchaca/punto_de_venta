@@ -8,4 +8,7 @@ export interface ProductSearchResult {
   trackInventory: boolean;
   taxRate: number;
   availableStock: number;
+  isActive?: boolean;
+  categoryName?: string | null;
+  brandName?: string | null;
 }

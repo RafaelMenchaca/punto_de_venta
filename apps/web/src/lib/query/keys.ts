@@ -1,4 +1,9 @@
 export const queryKeys = {
+  operatingContext: (
+    businessId: string | null,
+    branchId: string | null,
+    registerId: string | null,
+  ) => ["context", "operating", businessId, branchId, registerId] as const,
   cashOpenSession: (
     registerId: string | null,
     businessId: string | null,

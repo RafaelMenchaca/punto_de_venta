@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOpenCashSessionQuery } from "@/features/cash/hooks";
+import { useOperatingContext } from "@/features/context/hooks";
 import { useCreateSaleMutation } from "@/features/sales/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
@@ -20,14 +21,15 @@ import { formatCurrency } from "@/lib/utils";
 import { useCartStore } from "@/stores/cart-store";
 
 interface LastSaleState {
-  saleId: string;
   total: number;
   paymentMethod: string;
+  soldAt: string;
 }
 
 export default function PosPage() {
   const hydrated = useHydratedStore();
   const { business_id, branch_id, register_id } = useCurrentBusiness();
+  const contextQuery = useOperatingContext(business_id, branch_id, register_id);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<LastSaleState | null>(null);
   const openSessionQuery = useOpenCashSessionQuery(
@@ -57,12 +59,12 @@ export default function PosPage() {
 
   if (!business_id || !branch_id || !register_id) {
     return (
-      <ErrorState message="Falta contexto operativo. Configura negocio, sucursal y caja en variables de desarrollo." />
+      <ErrorState message="Falta contexto operativo. Configura negocio, sucursal y caja para vender." />
     );
   }
 
   if (openSessionQuery.isLoading) {
-    return <LoadingState message="Consultando sesión de caja..." />;
+    return <LoadingState message="Consultando sesion de caja..." />;
   }
 
   if (openSessionQuery.error instanceof Error) {
@@ -79,18 +81,60 @@ export default function PosPage() {
 
   if (!openSession) {
     return (
-      <ErrorState message="No hay una caja abierta para esta caja. Abre sesión antes de vender." />
+      <ErrorState message="No hay una caja abierta para esta caja. Abre una sesion antes de vender." />
     );
   }
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Operacion actual</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 text-sm md:grid-cols-3">
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-muted-foreground">Cajero</p>
+              <p className="mt-2 font-semibold">
+                {contextQuery.data?.user.full_name ?? "Resolviendo usuario..."}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-muted-foreground">Caja</p>
+              <p className="mt-2 font-semibold">
+                {contextQuery.data?.register?.name ?? "Caja activa"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-white/60 p-4">
+              <p className="text-muted-foreground">Sucursal</p>
+              <p className="mt-2 font-semibold">
+                {contextQuery.data?.branch.name ?? "Sucursal actual"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <ProductSearch
           business_id={business_id}
           branch_id={branch_id}
           disableOutOfStock
           onSelect={(product) => {
+            const existingItem = items.find(
+              (item) => item.product_id === product.id,
+            );
+
+            if (
+              product.trackInventory &&
+              existingItem &&
+              existingItem.quantity >= product.availableStock
+            ) {
+              const message =
+                "No puedes agregar mas unidades que el stock disponible.";
+              setSaleError(message);
+              toast.error(message);
+              return;
+            }
+
             setSaleError(null);
             addItem(product);
             toast.success(`${product.name} agregado al carrito.`);
@@ -99,8 +143,32 @@ export default function PosPage() {
         <PosCart
           items={items}
           onQuantityChange={(productId, quantity) => {
-            setSaleError(null);
-            updateQuantity(productId, quantity);
+            const currentItem = items.find((item) => item.product_id === productId);
+
+            if (!currentItem) {
+              return;
+            }
+
+            const normalizedQuantity = currentItem.track_inventory
+              ? Math.min(
+                  Math.max(1, Number.isFinite(quantity) ? quantity : 1),
+                  Math.max(1, currentItem.available_stock),
+                )
+              : Math.max(1, Number.isFinite(quantity) ? quantity : 1);
+
+            if (
+              currentItem.track_inventory &&
+              quantity > currentItem.available_stock
+            ) {
+              const message =
+                "La cantidad solicitada supera el stock disponible.";
+              setSaleError(message);
+              toast.error(message);
+            } else {
+              setSaleError(null);
+            }
+
+            updateQuantity(productId, normalizedQuantity);
           }}
           onRemove={(productId) => {
             setSaleError(null);
@@ -114,12 +182,14 @@ export default function PosPage() {
         {lastSale ? (
           <Card>
             <CardHeader>
-              <CardTitle>Última venta</CardTitle>
+              <CardTitle>Ultima venta</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p>ID: {lastSale.saleId.slice(0, 8)}</p>
               <p>Total: {formatCurrency(lastSale.total)}</p>
-              <p>Método: {lastSale.paymentMethod}</p>
+              <p>Metodo: {lastSale.paymentMethod}</p>
+              <p>
+                Registrada: {new Date(lastSale.soldAt).toLocaleString("es-MX")}
+              </p>
             </CardContent>
           </Card>
         ) : null}
@@ -160,9 +230,9 @@ export default function PosPage() {
               });
               setSaleError(null);
               setLastSale({
-                saleId: response.sale.id,
                 total: response.sale.total,
                 paymentMethod: payment_method,
+                soldAt: response.sale.created_at,
               });
               clearCart();
               toast.success("Venta registrada correctamente.");

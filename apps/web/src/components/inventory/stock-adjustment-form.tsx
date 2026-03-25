@@ -49,7 +49,7 @@ export function StockAdjustmentForm({
       <CardHeader>
         <CardTitle>Ajuste manual</CardTitle>
         <CardDescription>
-          Define la nueva cantidad física y registra el motivo.
+          Define la nueva cantidad fisica y registra el motivo.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -70,7 +70,7 @@ export function StockAdjustmentForm({
             id="reason"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Conteo físico, merma, corrección..."
+            placeholder="Conteo fisico, merma, correccion..."
           />
         </div>
 
