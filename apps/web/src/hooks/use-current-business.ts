@@ -1,16 +1,23 @@
 "use client";
 
-import { clientEnv } from "@/lib/env/client";
-import { useCashStore } from "@/stores/cash-store";
+import { useOperatingContextStore } from "@/stores/operating-context-store";
 
 export function useCurrentBusiness() {
-  const register_id = useCashStore((state) => state.register_id);
-  const setRegisterId = useCashStore((state) => state.setRegisterId);
+  const business_id = useOperatingContextStore((state) => state.business_id);
+  const branch_id = useOperatingContextStore((state) => state.branch_id);
+  const register_id = useOperatingContextStore((state) => state.register_id);
+  const setBusinessId = useOperatingContextStore((state) => state.setBusinessId);
+  const setBranchId = useOperatingContextStore((state) => state.setBranchId);
+  const setRegisterId = useOperatingContextStore((state) => state.setRegisterId);
+  const clearSelection = useOperatingContextStore((state) => state.clearSelection);
 
   return {
-    business_id: clientEnv.devBusinessId || null,
-    branch_id: clientEnv.devBranchId || null,
-    register_id: register_id || clientEnv.devRegisterId || null,
+    business_id: business_id || null,
+    branch_id: branch_id || null,
+    register_id: register_id || null,
+    setBusinessId,
+    setBranchId,
     setRegisterId,
+    clearSelection,
   };
 }

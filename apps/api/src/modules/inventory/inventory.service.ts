@@ -33,9 +33,10 @@ export class InventoryService {
       user.id,
       query.business_id,
     );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      query.branch_id,
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
       query.business_id,
+      query.branch_id,
     );
 
     return this.inventoryRepository.searchProducts(
@@ -50,9 +51,10 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      input.branch_id,
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
       input.business_id,
+      input.branch_id,
     );
 
     if (!input.track_inventory && (input.initial_stock ?? 0) > 0) {
@@ -232,9 +234,10 @@ export class InventoryService {
       user.id,
       query.business_id,
     );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      query.branch_id,
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
       query.business_id,
+      query.branch_id,
     );
 
     const product = await this.inventoryRepository.getProductById(
@@ -267,9 +270,10 @@ export class InventoryService {
       user.id,
       query.business_id,
     );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      query.branch_id,
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
       query.business_id,
+      query.branch_id,
     );
 
     return this.stockService.getDefaultInventoryLocationByBranch(
@@ -286,9 +290,10 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      input.branch_id,
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
       input.business_id,
+      input.branch_id,
     );
 
     return this.prisma.$transaction(async (tx) => {

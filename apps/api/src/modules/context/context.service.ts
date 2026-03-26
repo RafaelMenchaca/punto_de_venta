@@ -1,24 +1,40 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BusinessAccessService } from '../shared-db/business-access.service';
 import { CashSessionLookupService } from '../shared-db/cash-session.service';
-import { RegisterValidationService } from '../shared-db/register-validation.service';
+import type { GetContextBranchesDto } from './dto/get-context-branches.dto';
+import type { GetContextRegistersDto } from './dto/get-context-registers.dto';
 import type { GetOperatingContextDto } from './dto/get-operating-context.dto';
 
-interface OperatingContextRecord {
-  userId: string;
-  userName: string | null;
-  userEmail: string | null;
+interface UserProfileRecord {
+  id: string;
+  fullName: string | null;
+  email: string | null;
   role: string | null;
-  businessId: string;
-  businessName: string;
-  branchId: string;
-  branchName: string;
-  registerId: string | null;
-  registerName: string | null;
-  registerCode: string | null;
+}
+
+interface BusinessOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface BranchOption {
+  id: string;
+  name: string;
+  code: string | null;
+}
+
+interface RegisterOption {
+  id: string;
+  name: string;
+  code: string;
 }
 
 @Injectable()
@@ -27,96 +43,206 @@ export class ContextService {
     private readonly businessAccessService: BusinessAccessService,
     private readonly cashSessionLookupService: CashSessionLookupService,
     private readonly prisma: PrismaService,
-    private readonly registerValidationService: RegisterValidationService,
   ) {}
 
-  async getOperatingContext(query: GetOperatingContextDto, user: RequestUser) {
-    await this.businessAccessService.assertBusinessMembership(
-      user.id,
-      query.business_id,
-    );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      query.branch_id,
-      query.business_id,
-    );
-
-    if (query.register_id) {
-      await this.registerValidationService.assertRegisterBelongsToBranch(
-        query.register_id,
-        query.branch_id,
-        query.business_id,
-      );
-    }
-
-    const rows = await this.prisma.$queryRaw<OperatingContextRecord[]>(
+  private async getUserProfile(
+    userId: string,
+    businessId?: string | null,
+    branchId?: string | null,
+  ) {
+    const rows = await this.prisma.$queryRaw<UserProfileRecord[]>(
       Prisma.sql`
         SELECT
-          p.id AS "userId",
-          p.full_name AS "userName",
-          p.email AS "userEmail",
-          ubr.role::text AS role,
-          b.id AS "businessId",
-          b.name AS "businessName",
-          br.id AS "branchId",
-          br.name AS "branchName",
-          r.id AS "registerId",
-          r.name AS "registerName",
-          r.code AS "registerCode"
+          p.id,
+          p.full_name AS "fullName",
+          p.email,
+          ${
+            businessId
+              ? Prisma.sql`
+                  (
+                    SELECT ubr.role::text
+                    FROM user_business_roles ubr
+                    WHERE ubr.user_id = p.id
+                      AND ubr.business_id = CAST(${businessId} AS uuid)
+                      AND ubr.is_active = true
+                      ${
+                        branchId
+                          ? Prisma.sql`
+                              AND (
+                                ubr.branch_id = CAST(${branchId} AS uuid)
+                                OR ubr.branch_id IS NULL
+                              )
+                              ORDER BY CASE
+                                WHEN ubr.branch_id = CAST(${branchId} AS uuid) THEN 0
+                                ELSE 1
+                              END
+                            `
+                          : Prisma.sql`
+                              ORDER BY CASE
+                                WHEN ubr.branch_id IS NULL THEN 1
+                                ELSE 0
+                              END
+                            `
+                      }
+                    LIMIT 1
+                  ) AS role
+                `
+              : Prisma.sql`NULL::text AS role`
+          }
         FROM profiles p
-        INNER JOIN businesses b
-          ON b.id = CAST(${query.business_id} AS uuid)
-        INNER JOIN branches br
-          ON br.id = CAST(${query.branch_id} AS uuid)
-         AND br.business_id = b.id
-        LEFT JOIN registers r
-          ON r.id = CAST(${query.register_id ?? null} AS uuid)
-         AND r.branch_id = br.id
-         AND r.business_id = b.id
-        LEFT JOIN user_business_roles ubr
-          ON ubr.user_id = p.id
-         AND ubr.business_id = b.id
-         AND (ubr.branch_id = br.id OR ubr.branch_id IS NULL)
-         AND ubr.is_active = true
-        WHERE p.id = CAST(${user.id} AS uuid)
-        ORDER BY CASE WHEN ubr.branch_id = br.id THEN 0 ELSE 1 END
+        WHERE p.id = CAST(${userId} AS uuid)
         LIMIT 1
       `,
     );
 
-    const context = rows[0];
+    const profile = rows[0];
 
-    if (!context) {
+    if (!profile) {
       throw new NotFoundException(
-        'No fue posible resolver el contexto operativo actual.',
+        'No fue posible resolver el perfil del usuario autenticado.',
       );
     }
 
-    const openCashSession = query.register_id
+    return {
+      id: profile.id,
+      full_name: profile.fullName,
+      email: profile.email,
+      role: profile.role,
+    };
+  }
+
+  private resolveSelectedOption<T extends { id: string }>(
+    items: T[],
+    selectedId?: string | null,
+  ) {
+    if (!selectedId) {
+      return items.length === 1 ? items[0]! : null;
+    }
+
+    const item = items.find((candidate) => candidate.id === selectedId);
+
+    if (!item) {
+      throw new BadRequestException(
+        'La seleccion operativa enviada no es valida para el usuario actual.',
+      );
+    }
+
+    return item;
+  }
+
+  async getBusinesses(user: RequestUser) {
+    return this.businessAccessService.getAccessibleBusinesses(user.id);
+  }
+
+  async getBranches(query: GetContextBranchesDto, user: RequestUser) {
+    return this.businessAccessService.getAccessibleBranches(
+      user.id,
+      query.business_id,
+    );
+  }
+
+  async getRegisters(query: GetContextRegistersDto, user: RequestUser) {
+    return this.businessAccessService.getAccessibleRegisters(
+      user.id,
+      query.business_id,
+      query.branch_id,
+    );
+  }
+
+  async getOperatingContext(query: GetOperatingContextDto, user: RequestUser) {
+    if (query.branch_id && !query.business_id) {
+      throw new BadRequestException(
+        'No puedes resolver una sucursal sin enviar business_id.',
+      );
+    }
+
+    if (query.register_id && (!query.business_id || !query.branch_id)) {
+      throw new BadRequestException(
+        'No puedes resolver una caja sin enviar business_id y branch_id.',
+      );
+    }
+
+    const businesses = await this.businessAccessService.getAccessibleBusinesses(
+      user.id,
+    );
+    const selectedBusiness = this.resolveSelectedOption(
+      businesses,
+      query.business_id ?? null,
+    );
+
+    const branches = selectedBusiness
+      ? await this.businessAccessService.getAccessibleBranches(
+          user.id,
+          selectedBusiness.id,
+        )
+      : [];
+    const selectedBranch = selectedBusiness
+      ? this.resolveSelectedOption(branches, query.branch_id ?? null)
+      : null;
+
+    const registers =
+      selectedBusiness && selectedBranch
+        ? await this.businessAccessService.getAccessibleRegisters(
+            user.id,
+            selectedBusiness.id,
+            selectedBranch.id,
+          )
+        : [];
+    const selectedRegister =
+      selectedBusiness && selectedBranch
+        ? this.resolveSelectedOption(registers, query.register_id ?? null)
+        : null;
+
+    const profile = await this.getUserProfile(
+      user.id,
+      selectedBusiness?.id ?? null,
+      selectedBranch?.id ?? null,
+    );
+    const openCashSession = selectedRegister
       ? await this.cashSessionLookupService.getOpenCashSessionByRegister(
-          query.register_id,
+          selectedRegister.id,
         )
       : null;
 
     return {
-      user: {
-        id: context.userId,
-        full_name: context.userName,
-        email: context.userEmail,
-        role: context.role,
+      user: profile,
+      businesses: businesses.map((business: BusinessOption) => ({
+        id: business.id,
+        name: business.name,
+        slug: business.slug,
+      })),
+      branches: branches.map((branch: BranchOption) => ({
+        id: branch.id,
+        name: branch.name,
+        code: branch.code,
+      })),
+      registers: registers.map((register: RegisterOption) => ({
+        id: register.id,
+        name: register.name,
+        code: register.code,
+      })),
+      selection: {
+        business_id: selectedBusiness?.id ?? null,
+        branch_id: selectedBranch?.id ?? null,
+        register_id: selectedRegister?.id ?? null,
       },
-      business: {
-        id: context.businessId,
-        name: context.businessName,
-      },
-      branch: {
-        id: context.branchId,
-        name: context.branchName,
-      },
-      register: context.registerId
+      business: selectedBusiness
         ? {
-            id: context.registerId,
-            name: context.registerName,
-            code: context.registerCode,
+            id: selectedBusiness.id,
+            name: selectedBusiness.name,
+          }
+        : null,
+      branch: selectedBranch
+        ? {
+            id: selectedBranch.id,
+            name: selectedBranch.name,
+          }
+        : null,
+      register: selectedRegister
+        ? {
+            id: selectedRegister.id,
+            name: selectedRegister.name,
+            code: selectedRegister.code,
           }
         : null,
       open_cash_session: openCashSession,

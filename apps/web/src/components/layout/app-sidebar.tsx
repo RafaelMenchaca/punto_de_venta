@@ -19,10 +19,10 @@ export function AppSidebar() {
           Punto de Venta
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">
-          {contextQuery.data?.business.name ?? "Operacion diaria"}
+          {contextQuery.data?.business?.name ?? "Operacion diaria"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {contextQuery.data?.branch.name ?? "Sucursal actual"}
+          {contextQuery.data?.branch?.name ?? "Sucursal actual"}
         </p>
       </div>
 

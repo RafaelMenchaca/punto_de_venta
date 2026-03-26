@@ -81,7 +81,7 @@ export default function PosPage() {
 
   if (!openSession) {
     return (
-      <ErrorState message="No hay una caja abierta para esta caja. Abre una sesion antes de vender." />
+      <ErrorState message="Debes abrir caja antes de vender." />
     );
   }
 
@@ -108,7 +108,7 @@ export default function PosPage() {
             <div className="rounded-2xl border border-border bg-white/60 p-4">
               <p className="text-muted-foreground">Sucursal</p>
               <p className="mt-2 font-semibold">
-                {contextQuery.data?.branch.name ?? "Sucursal actual"}
+                {contextQuery.data?.branch?.name ?? "Sucursal actual"}
               </p>
             </div>
           </CardContent>

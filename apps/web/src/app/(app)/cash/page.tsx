@@ -1,7 +1,10 @@
 "use client";
 
 import { toast } from "sonner";
+import { CashMovementForm } from "@/components/cash/cash-movement-form";
+import { CashMovementList } from "@/components/cash/cash-movement-list";
 import { CashSessionCard } from "@/components/cash/cash-session-card";
+import { CashSessionSummaryCard } from "@/components/cash/cash-session-summary-card";
 import { CloseCashForm } from "@/components/cash/close-cash-form";
 import { OpenCashForm } from "@/components/cash/open-cash-form";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -15,7 +18,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  useCashSessionSummaryQuery,
   useCloseCashSessionMutation,
+  useCreateCashMovementMutation,
   useOpenCashSessionMutation,
   useOpenCashSessionQuery,
 } from "@/features/cash/hooks";
@@ -32,7 +37,14 @@ export default function CashPage() {
     business_id,
     branch_id,
   );
+  const summaryQuery = useCashSessionSummaryQuery(openSessionQuery.data?.id ?? null);
   const openMutation = useOpenCashSessionMutation(
+    register_id,
+    business_id,
+    branch_id,
+  );
+  const movementMutation = useCreateCashMovementMutation(
+    openSessionQuery.data?.id ?? null,
     register_id,
     business_id,
     branch_id,
@@ -41,121 +53,68 @@ export default function CashPage() {
     register_id,
     business_id,
     branch_id,
+    openSessionQuery.data?.id ?? null,
   );
 
   if (!hydrated) {
     return <LoadingState message="Inicializando caja..." />;
   }
 
-  if (!business_id || !branch_id) {
+  if (!business_id || !branch_id || !register_id) {
     return (
-      <ErrorState message="Falta contexto operativo. Configura negocio y sucursal para abrir o cerrar caja." />
-    );
-  }
-
-  if (!register_id) {
-    return (
-      <ErrorState message="No hay una caja configurada para esta operacion. Revisa el contexto de desarrollo o autenticacion." />
+      <ErrorState message="Selecciona negocio, sucursal y caja para operar la caja." />
     );
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Contexto de caja</CardTitle>
-            <CardDescription>
-              Negocio, sucursal, caja y usuario activos para este turno.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-white/60 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Negocio
-              </p>
-              <p className="mt-2 font-medium">
-                {contextQuery.data?.business.name ?? "Resolviendo negocio..."}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-white/60 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Sucursal
-              </p>
-              <p className="mt-2 font-medium">
-                {contextQuery.data?.branch.name ?? "Resolviendo sucursal..."}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-white/60 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Caja
-              </p>
-              <p className="mt-2 font-medium">
-                {contextQuery.data?.register?.name ?? "Caja sin resolver"}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-white/60 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Usuario
-              </p>
-              <p className="mt-2 font-medium">
-                {contextQuery.data?.user.full_name ?? "Usuario sin resolver"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {openSessionQuery.isLoading ? (
-          <LoadingState message="Consultando sesion abierta..." />
-        ) : null}
-        {openSessionQuery.error instanceof Error ? (
-          <ErrorState
-            message={openSessionQuery.error.message}
-            actionLabel="Reintentar"
-            onAction={() => void openSessionQuery.refetch()}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Contexto de caja</CardTitle>
+          <CardDescription>
+            Operacion diaria sobre la seleccion actual.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ContextMetric
+            label="Negocio"
+            value={contextQuery.data?.business?.name ?? "Sin seleccionar"}
           />
-        ) : null}
-        {!openSessionQuery.isLoading &&
-        !openSessionQuery.error &&
-        !openSessionQuery.data ? (
+          <ContextMetric
+            label="Sucursal"
+            value={contextQuery.data?.branch?.name ?? "Sin seleccionar"}
+          />
+          <ContextMetric
+            label="Caja"
+            value={contextQuery.data?.register?.name ?? "Sin seleccionar"}
+          />
+          <ContextMetric
+            label="Usuario"
+            value={contextQuery.data?.user.full_name ?? "Sin resolver"}
+          />
+        </CardContent>
+      </Card>
+
+      {openSessionQuery.isLoading ? (
+        <LoadingState message="Consultando sesion abierta..." />
+      ) : null}
+      {openSessionQuery.error instanceof Error ? (
+        <ErrorState
+          message={openSessionQuery.error.message}
+          actionLabel="Reintentar"
+          onAction={() => void openSessionQuery.refetch()}
+        />
+      ) : null}
+
+      {!openSessionQuery.isLoading &&
+      !openSessionQuery.error &&
+      !openSessionQuery.data ? (
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <EmptyState
             title="Sin sesion abierta"
-            description="Esta caja todavia no tiene un turno abierto. Puedes abrirla desde el panel derecho."
+            description="Esta caja todavia no tiene un turno abierto. Registra el monto de apertura para empezar a vender."
           />
-        ) : null}
-        {openSessionQuery.data ? (
-          <CashSessionCard
-            session={openSessionQuery.data}
-            openedByLabel={contextQuery.data?.user.full_name}
-            registerLabel={
-              contextQuery.data?.register?.name ?? contextQuery.data?.register?.code
-            }
-          />
-        ) : null}
-      </div>
 
-      <div className="space-y-6">
-        {openSessionQuery.data ? (
-          <CloseCashForm
-            key={openSessionQuery.data.id}
-            session={openSessionQuery.data}
-            loading={closeMutation.isPending}
-            onSubmit={async (payload) => {
-              try {
-                const response = await closeMutation.mutateAsync(payload);
-                toast.success(
-                  `Caja cerrada. Diferencia: ${response.difference_amount.toFixed(2)}`,
-                );
-              } catch (error) {
-                toast.error(
-                  error instanceof Error
-                    ? error.message
-                    : "No fue posible cerrar la caja.",
-                );
-              }
-            }}
-          />
-        ) : (
           <OpenCashForm
             business_id={business_id}
             branch_id={branch_id}
@@ -174,8 +133,98 @@ export default function CashPage() {
               }
             }}
           />
-        )}
-      </div>
+        </div>
+      ) : null}
+
+      {openSessionQuery.data ? (
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="space-y-6">
+            <CashSessionCard
+              session={openSessionQuery.data}
+              openedByLabel={contextQuery.data?.user.full_name}
+              registerLabel={
+                contextQuery.data?.register?.name ?? contextQuery.data?.register?.code
+              }
+            />
+
+            {summaryQuery.isLoading ? (
+              <LoadingState message="Calculando resumen de sesion..." />
+            ) : null}
+            {summaryQuery.error instanceof Error ? (
+              <ErrorState
+                message={summaryQuery.error.message}
+                actionLabel="Reintentar"
+                onAction={() => void summaryQuery.refetch()}
+              />
+            ) : null}
+            {summaryQuery.data ? (
+              <>
+                <CashSessionSummaryCard summary={summaryQuery.data} />
+                <CashMovementList movements={summaryQuery.data.movements} />
+              </>
+            ) : null}
+          </div>
+
+          <div className="space-y-6">
+            <CashMovementForm
+              loading={movementMutation.isPending}
+              onSubmit={async (payload) => {
+                try {
+                  await movementMutation.mutateAsync(payload);
+                  toast.success("Movimiento registrado.");
+                } catch (error) {
+                  const message =
+                    error instanceof Error
+                      ? error.message
+                      : "No fue posible registrar el movimiento.";
+                  toast.error(message);
+                  throw new Error(message);
+                }
+              }}
+            />
+
+            {summaryQuery.data ? (
+              <CloseCashForm
+                key={openSessionQuery.data.id}
+                session={openSessionQuery.data}
+                expectedCash={summaryQuery.data.totals.expected_cash}
+                loading={closeMutation.isPending}
+                onSubmit={async (payload) => {
+                  try {
+                    const response = await closeMutation.mutateAsync(payload);
+                    toast.success(
+                      `Caja cerrada. Diferencia: ${response.difference_amount.toFixed(2)}`,
+                    );
+                  } catch (error) {
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "No fue posible cerrar la caja.",
+                    );
+                  }
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ContextMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-white/60 p-4">
+      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 font-medium">{value}</p>
     </div>
   );
 }

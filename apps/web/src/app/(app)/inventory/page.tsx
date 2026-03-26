@@ -91,7 +91,7 @@ export default function InventoryPage() {
                 Negocio
               </p>
               <p className="mt-2 font-medium">
-                {contextQuery.data?.business.name ?? "Resolviendo negocio..."}
+                {contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-white/60 p-4">
@@ -99,7 +99,7 @@ export default function InventoryPage() {
                 Sucursal
               </p>
               <p className="mt-2 font-medium">
-                {contextQuery.data?.branch.name ?? "Resolviendo sucursal..."}
+                {contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-white/60 p-4">

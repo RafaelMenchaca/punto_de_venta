@@ -18,6 +18,12 @@ export function useCreateSaleMutation(
         queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
       });
       await queryClient.invalidateQueries({
+        queryKey: ["cash", "summary"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
+      });
+      await queryClient.invalidateQueries({
         queryKey: ["inventory"],
       });
     },
