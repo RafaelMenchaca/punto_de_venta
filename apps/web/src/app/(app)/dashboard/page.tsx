@@ -85,7 +85,7 @@ export default function DashboardPage() {
               Negocio
             </p>
             <p className="mt-2 font-medium">
-              {context?.business.name ?? "No configurado"}
+              {context?.business?.name ?? "No configurado"}
             </p>
           </div>
           <div className="rounded-2xl bg-white/60 p-4">
@@ -93,7 +93,7 @@ export default function DashboardPage() {
               Sucursal
             </p>
             <p className="mt-2 font-medium">
-              {context?.branch.name ?? "No configurada"}
+              {context?.branch?.name ?? "No configurada"}
             </p>
           </div>
           <div className="rounded-2xl bg-white/60 p-4">

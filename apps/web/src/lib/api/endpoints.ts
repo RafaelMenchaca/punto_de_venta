@@ -1,7 +1,14 @@
 export const apiEndpoints = {
   operatingContext: "/context/operating",
+  contextBusinesses: "/context/businesses",
+  contextBranches: "/context/branches",
+  contextRegisters: "/context/registers",
   cashOpenSession: (registerId: string) =>
     `/cash/registers/${registerId}/open-session`,
+  cashSessionSummary: (cashSessionId: string) =>
+    `/cash/sessions/${cashSessionId}/summary`,
+  cashSessionMovements: (cashSessionId: string) =>
+    `/cash/sessions/${cashSessionId}/movements`,
   cashOpen: "/cash/sessions/open",
   cashClose: "/cash/sessions/close",
   createSale: "/sales",

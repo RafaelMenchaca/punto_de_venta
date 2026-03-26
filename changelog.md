@@ -277,3 +277,114 @@ Estado operativo validado sobre el esquema real descrito en `apps/api/db_setup.s
 - `npx nest build` en `apps/api`: OK
 - `npm run lint --workspace @pos/web`: OK
 - `npm run build --workspace @pos/web`: OK
+
+## 0.3.0 - 2026-03-25
+
+Sprint 1A y 1B implementados sobre la arquitectura actual del monorepo y alineados con `apps/api/db_setup.sql` como fuente de verdad del esquema.
+
+### Sprint 1A - Caja operativa real
+
+- Caja extendida para operar sesiones reales con:
+  - apertura
+  - consulta de sesiÃ³n abierta por caja
+  - resumen detallado de sesiÃ³n
+  - movimientos manuales de caja
+  - cierre con contado y diferencia
+- Nuevos endpoints de caja:
+  - `GET /api/cash/sessions/:cashSessionId/summary`
+  - `POST /api/cash/sessions/:cashSessionId/movements`
+- CÃ¡lculo centralizado del resumen de sesiÃ³n:
+  - ventas totales
+  - totales por mÃ©todo de pago
+  - ingresos manuales
+  - retiros
+  - efectivo esperado
+- Regla operativa aplicada:
+  - `efectivo esperado = apertura + ventas en efectivo + ingresos manuales - retiros`
+- AuditorÃ­a agregada para:
+  - `open_cash_session`
+  - `cash_income`
+  - `cash_expense`
+  - `close_cash_session`
+- CorrecciÃ³n tÃ©cnica importante:
+  - se corrigiÃ³ el cierre de caja para evitar el error de PostgreSQL `FOR UPDATE cannot be applied to the nullable side of an outer join`
+
+### Sprint 1B - Auth real y selector operativo real
+
+- Frontend preparado para auth real con Supabase:
+  - nueva pantalla `/login`
+  - `AuthProvider`
+  - `AuthGuard`
+  - logout desde UI
+- El bypass dev deja de ser flujo principal en frontend.
+- Nuevo selector operativo persistido en `localStorage` para:
+  - negocio
+  - sucursal
+  - caja
+- Nuevos endpoints de contexto:
+  - `GET /api/context/businesses`
+  - `GET /api/context/branches`
+  - `GET /api/context/registers`
+- `GET /api/context/operating` ampliado para devolver:
+  - usuario actual
+  - negocios accesibles
+  - sucursales accesibles
+  - cajas accesibles
+  - selecciÃ³n vigente
+  - sesiÃ³n abierta de la caja seleccionada
+- Reglas de acceso reforzadas con `user_business_roles`:
+  - si el usuario tiene rol a nivel negocio puede ver todas las sucursales activas del negocio
+  - si el usuario estÃ¡ ligado a una sucursal concreta solo puede ver esa sucursal
+  - las cajas listadas respetan negocio y sucursal seleccionados
+
+### Frontend actualizado en esta versiÃ³n
+
+- `/cash` ahora muestra:
+  - contexto operativo real
+  - tarjeta de sesiÃ³n abierta
+  - resumen vivo de sesiÃ³n
+  - formulario de ingreso/retiro
+  - lista reciente de movimientos
+  - cierre con diferencia en vivo
+- `/pos` bloquea venta si no hay sesiÃ³n abierta con el mensaje:
+  - `Debes abrir caja antes de vender.`
+- `/dashboard`, `/cash`, `/inventory` y `/pos` ya consumen el selector operativo persistido, no solo IDs fijos de desarrollo.
+- El cliente HTTP del frontend sigue tolerando respuestas vacÃ­as sin romper con `Unexpected end of JSON input`.
+
+### ValidaciÃ³n funcional ejecutada
+
+- Contexto operativo validado:
+  - negocio: `Punto de Venta Nano`
+  - sucursal: `Sucursal Principal`
+  - caja: `Caja 1`
+  - usuario: `Rafael Menchaca`
+- Flujo de caja validado contra API local y Supabase:
+  - cierre de sesiÃ³n previa con `difference_amount = 0`
+  - apertura nueva con `opening_amount = 100`
+  - venta ligada a la sesiÃ³n por `21.5`
+  - ingreso manual por `20`
+  - retiro manual por `5`
+  - resumen con `expected_cash = 136.5`
+  - cierre con `closing_counted = 136.5` y `difference_amount = 0`
+- ValidaciÃ³n adicional:
+  - el producto vendido descontÃ³ stock de `490` a `489`
+
+### Validaciones tÃ©cnicas ejecutadas en esta versiÃ³n
+
+- `npm run lint --workspace @pos/api`: OK
+- `npx nest build` en `apps/api`: OK
+- `npm run lint --workspace @pos/web`: OK
+- `npm run build --workspace @pos/web`: OK
+
+### Pendientes reales despuÃ©s de este sprint
+
+- Probar login real extremo a extremo con credenciales reales de Supabase disponibles fuera del repo.
+- Reemplazar el fallback dev en entornos reales.
+- Ajustar documentaciÃ³n funcional de uso para usuarios finales.
+- Continuar con siguientes bloques fuera de este sprint:
+  - clientes
+  - descuentos
+  - devoluciones
+  - tickets
+  - compras
+  - reportes

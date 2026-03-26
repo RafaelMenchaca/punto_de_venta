@@ -37,9 +37,10 @@ export class SalesService {
       user.id,
       input.business_id,
     );
-    await this.businessAccessService.assertBranchBelongsToBusiness(
-      input.branch_id,
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
       input.business_id,
+      input.branch_id,
     );
     await this.registerValidationService.assertRegisterBelongsToBranch(
       input.register_id,

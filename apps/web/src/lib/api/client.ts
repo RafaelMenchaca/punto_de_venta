@@ -27,6 +27,10 @@ const buildQueryString = (query?: RequestOptions["query"]) => {
 };
 
 const getDevHeaders = () => {
+  if (!clientEnv.enableDevAuthBypass) {
+    return {};
+  }
+
   const devHeaders: Record<string, string> = {};
 
   if (clientEnv.devUserId) {
@@ -73,12 +77,6 @@ const resolveApiBaseUrl = () => {
 };
 
 const getAuthHeaders = async () => {
-  const devHeaders = getDevHeaders();
-
-  if (devHeaders["x-dev-user-id"]) {
-    return devHeaders;
-  }
-
   const supabase = getBrowserSupabaseClient();
 
   if (supabase) {
@@ -92,7 +90,7 @@ const getAuthHeaders = async () => {
     }
   }
 
-  return devHeaders;
+  return getDevHeaders();
 };
 
 export async function apiRequest<T>(

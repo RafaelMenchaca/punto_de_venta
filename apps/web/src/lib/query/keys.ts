@@ -4,11 +4,18 @@ export const queryKeys = {
     branchId: string | null,
     registerId: string | null,
   ) => ["context", "operating", businessId, branchId, registerId] as const,
+  contextBusinesses: () => ["context", "businesses"] as const,
+  contextBranches: (businessId: string | null) =>
+    ["context", "branches", businessId] as const,
+  contextRegisters: (businessId: string | null, branchId: string | null) =>
+    ["context", "registers", businessId, branchId] as const,
   cashOpenSession: (
     registerId: string | null,
     businessId: string | null,
     branchId: string | null,
   ) => ["cash", "open-session", registerId, businessId, branchId] as const,
+  cashSessionSummary: (cashSessionId: string | null) =>
+    ["cash", "summary", cashSessionId] as const,
   defaultInventoryLocation: (
     businessId: string | null,
     branchId: string | null,

@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import {
   closeCashSession,
+  createCashMovement,
+  getCashSessionSummary,
   getOpenCashSessionByRegister,
   openCashSession,
 } from "./api";
@@ -24,6 +26,14 @@ export function useOpenCashSessionQuery(
   });
 }
 
+export function useCashSessionSummaryQuery(cashSessionId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.cashSessionSummary(cashSessionId),
+    queryFn: () => getCashSessionSummary(cashSessionId!),
+    enabled: Boolean(cashSessionId),
+  });
+}
+
 export function useOpenCashSessionMutation(
   registerId: string | null,
   businessId: string | null,
@@ -40,6 +50,34 @@ export function useOpenCashSessionMutation(
       await queryClient.invalidateQueries({
         queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["cash", "summary"],
+      });
+    },
+  });
+}
+
+export function useCreateCashMovementMutation(
+  cashSessionId: string | null,
+  registerId: string | null,
+  businessId: string | null,
+  branchId: string | null,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { movement_type: "income" | "expense"; amount: number; notes?: string }) =>
+      createCashMovement(cashSessionId!, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.cashSessionSummary(cashSessionId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
+      });
     },
   });
 }
@@ -48,6 +86,7 @@ export function useCloseCashSessionMutation(
   registerId: string | null,
   businessId: string | null,
   branchId: string | null,
+  cashSessionId?: string | null,
 ) {
   const queryClient = useQueryClient();
 
@@ -59,6 +98,9 @@ export function useCloseCashSessionMutation(
       });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.cashSessionSummary(cashSessionId ?? null),
       });
     },
   });
