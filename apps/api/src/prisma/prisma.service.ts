@@ -6,12 +6,45 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '../generated/prisma/client';
 
+const buildPrismaOptions = () => {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = new URL(databaseUrl);
+
+    if (
+      parsedUrl.hostname.endsWith('.pooler.supabase.com') &&
+      !parsedUrl.searchParams.has('connection_limit')
+    ) {
+      parsedUrl.searchParams.set('connection_limit', '3');
+    }
+
+    return {
+      datasources: {
+        db: {
+          url: parsedUrl.toString(),
+        },
+      },
+    };
+  } catch {
+    return undefined;
+  }
+};
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
+
+  constructor() {
+    super(buildPrismaOptions());
+  }
 
   private extractDatabaseHost() {
     const databaseUrl = process.env.DATABASE_URL;

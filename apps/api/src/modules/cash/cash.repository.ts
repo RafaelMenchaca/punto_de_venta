@@ -304,13 +304,36 @@ export class CashRepository {
     const executor = tx ?? this.prisma;
     return executor.$queryRaw<PaymentMethodTotalRecord[]>(
       Prisma.sql`
+        WITH refund_totals AS (
+          SELECT
+            sale_id,
+            COALESCE(SUM(total), 0)::double precision AS refunded_total
+          FROM refunds
+          GROUP BY sale_id
+        )
         SELECT
           p.payment_method::text AS "paymentMethod",
-          COALESCE(SUM(p.amount), 0)::double precision AS amount
+          COALESCE(
+            SUM(
+              CASE
+                WHEN s.total <= 0 THEN 0
+                ELSE p.amount * GREATEST(
+                  1 - (COALESCE(rt.refunded_total, 0) / NULLIF(s.total, 0)),
+                  0
+                )
+              END
+            ),
+            0
+          )::double precision AS amount
         FROM sales s
         INNER JOIN payments p ON p.sale_id = s.id
+        LEFT JOIN refund_totals rt ON rt.sale_id = s.id
         WHERE s.cash_session_id = CAST(${cashSessionId} AS uuid)
-          AND s.status = CAST('completed' AS sale_status)
+          AND s.status IN (
+            CAST('completed' AS sale_status),
+            CAST('partially_refunded' AS sale_status),
+            CAST('refunded' AS sale_status)
+          )
         GROUP BY p.payment_method
       `,
     );
@@ -321,10 +344,28 @@ export class CashRepository {
     const rows = await executor.$queryRaw<Array<{ totalSales: number }>>(
       Prisma.sql`
         SELECT
-          COALESCE(SUM(total), 0)::double precision AS "totalSales"
-        FROM sales
-        WHERE cash_session_id = CAST(${cashSessionId} AS uuid)
-          AND status = CAST('completed' AS sale_status)
+          COALESCE(
+            SUM(
+              CASE
+                WHEN s.status = CAST('cancelled' AS sale_status) THEN 0
+                ELSE GREATEST(
+                  s.total - COALESCE(refund_totals.amount, 0),
+                  0
+                )
+              END
+            ),
+            0
+          )::double precision AS "totalSales"
+        FROM sales s
+        LEFT JOIN (
+          SELECT
+            sale_id,
+            SUM(total) AS amount
+          FROM refunds
+          GROUP BY sale_id
+        ) refund_totals ON refund_totals.sale_id = s.id
+        WHERE s.cash_session_id = CAST(${cashSessionId} AS uuid)
+          AND s.status <> CAST('draft' AS sale_status)
       `,
     );
 

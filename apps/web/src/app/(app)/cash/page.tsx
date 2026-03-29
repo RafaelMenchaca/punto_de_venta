@@ -227,6 +227,7 @@ export default function CashPage() {
                 onSubmit={async (payload) => {
                   try {
                     const response = await closeMutation.mutateAsync(payload);
+                    await openSessionQuery.refetch();
                     toast.success(
                       `Caja cerrada. Diferencia: ${response.difference_amount.toFixed(2)}`,
                     );
