@@ -13,12 +13,27 @@ export const apiEndpoints = {
   cashClose: "/cash/sessions/close",
   createSale: "/sales",
   inventoryProductsSearch: "/inventory/products/search",
+  inventoryProductsList: "/inventory/products",
   inventoryCreateProduct: "/inventory/products",
+  inventoryProductDetail: (productId: string) =>
+    `/inventory/products/${productId}`,
+  inventoryUpdateProduct: (productId: string) =>
+    `/inventory/products/${productId}/update`,
   inventoryDeactivateProduct: (productId: string) =>
     `/inventory/products/${productId}/deactivate`,
+  inventoryReactivateProduct: (productId: string) =>
+    `/inventory/products/${productId}/reactivate`,
   inventoryProductStock: (productId: string) =>
     `/inventory/products/${productId}/stock`,
+  inventoryProductMovements: (productId: string) =>
+    `/inventory/products/${productId}/movements`,
   inventoryDefaultLocation: "/inventory/locations/default",
   inventoryStockAdjustments: "/inventory/stock-adjustments",
+  inventoryCatalogs: "/inventory/catalogs",
+  inventoryCreateCategory: "/inventory/catalogs/categories",
+  inventoryCreateBrand: "/inventory/catalogs/brands",
+  inventoryCreateTaxRate: "/inventory/catalogs/tax-rates",
+  inventoryCreateSupplier: "/inventory/catalogs/suppliers",
+  inventoryEntries: "/inventory/entries",
   health: "/health",
 } as const;

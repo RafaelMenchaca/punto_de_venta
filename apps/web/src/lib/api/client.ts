@@ -7,7 +7,7 @@ type HttpMethod = "GET" | "POST";
 interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
-  query?: Record<string, string | number | undefined | null>;
+  query?: Record<string, string | number | boolean | undefined | null>;
 }
 
 const REQUEST_TIMEOUT_MS = 8000;
@@ -123,14 +123,14 @@ export async function apiRequest<T>(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new ApiError(
-        "La API tardo demasiado en responder. Verifica conexion y backend.",
+        "No se pudo completar la solicitud en este momento.",
         0,
         error,
       );
     }
 
     throw new ApiError(
-      "No fue posible conectar con la API. Verifica que el backend este levantado.",
+      "No se pudo completar la solicitud en este momento.",
       0,
       error,
     );
@@ -144,7 +144,7 @@ export async function apiRequest<T>(
     } | null;
     const message = Array.isArray(errorPayload?.message)
       ? errorPayload.message.join(", ")
-      : (errorPayload?.message ?? "No fue posible completar la solicitud.");
+      : (errorPayload?.message ?? "No se pudo completar la solicitud.");
 
     throw new ApiError(message, response.status, errorPayload);
   }
