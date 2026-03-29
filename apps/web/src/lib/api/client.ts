@@ -2,7 +2,7 @@ import { clientEnv } from "@/lib/env/client";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import { ApiError } from "./errors";
 
-type HttpMethod = "GET" | "POST";
+type HttpMethod = "GET" | "POST" | "PATCH";
 
 interface RequestOptions {
   method?: HttpMethod;

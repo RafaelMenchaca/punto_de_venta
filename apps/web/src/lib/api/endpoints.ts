@@ -18,6 +18,23 @@ export const apiEndpoints = {
   saleCancel: (saleId: string) => `/sales/${saleId}/cancel`,
   saleRefunds: (saleId: string) => `/sales/${saleId}/refunds`,
   createRefund: "/refunds",
+  purchasingSuppliers: "/purchasing/suppliers",
+  purchasingSupplierDetail: (supplierId: string) =>
+    `/purchasing/suppliers/${supplierId}`,
+  purchasingSupplierDeactivate: (supplierId: string) =>
+    `/purchasing/suppliers/${supplierId}/deactivate`,
+  purchasingSupplierReactivate: (supplierId: string) =>
+    `/purchasing/suppliers/${supplierId}/reactivate`,
+  purchaseOrders: "/purchasing/purchase-orders",
+  purchaseOrderDetail: (purchaseOrderId: string) =>
+    `/purchasing/purchase-orders/${purchaseOrderId}`,
+  purchaseOrderSubmit: (purchaseOrderId: string) =>
+    `/purchasing/purchase-orders/${purchaseOrderId}/submit`,
+  purchaseOrderCancel: (purchaseOrderId: string) =>
+    `/purchasing/purchase-orders/${purchaseOrderId}/cancel`,
+  goodsReceipts: "/purchasing/goods-receipts",
+  goodsReceiptDetail: (goodsReceiptId: string) =>
+    `/purchasing/goods-receipts/${goodsReceiptId}`,
   inventoryProductsSearch: "/inventory/products/search",
   inventoryProductsList: "/inventory/products",
   inventoryCreateProduct: "/inventory/products",
