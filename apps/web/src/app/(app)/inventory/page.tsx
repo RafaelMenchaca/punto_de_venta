@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CreateProductForm } from "@/components/inventory/create-product-form";
+import { InventoryAlertsPanel } from "@/components/inventory/inventory-alerts-panel";
 import { InventoryCatalogsPanel } from "@/components/inventory/inventory-catalogs-panel";
 import { InventoryEntryForm } from "@/components/inventory/inventory-entry-form";
+import { InventoryLocationManager } from "@/components/inventory/inventory-location-manager";
+import { InventoryMovementsPanel } from "@/components/inventory/inventory-movements-panel";
+import { InventoryTransferForm } from "@/components/inventory/inventory-transfer-form";
 import { StockAdjustmentForm } from "@/components/inventory/stock-adjustment-form";
 import { StockLevelCard } from "@/components/inventory/stock-level-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -23,12 +27,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { useOperatingContext } from "@/features/context/hooks";
 import {
+  formatInventoryQuantity,
+  getInventoryMovementLabel,
+} from "@/features/inventory/presentation";
+import {
   useCreateInventoryEntryMutation,
   useCreateInventoryProductMutation,
   useCreateStockAdjustmentMutation,
   useDefaultInventoryLocation,
   useDeactivateInventoryProductMutation,
   useInventoryCatalogsQuery,
+  useInventoryLocationsQuery,
   useInventoryProductDetailQuery,
   useInventoryProductMovementsQuery,
   useInventoryProductsQuery,
@@ -42,7 +51,15 @@ import { useHydratedStore } from "@/hooks/use-hydrated-store";
 import { getFriendlyErrorMessage } from "@/lib/api/errors";
 import { formatCurrency } from "@/lib/utils";
 
-type InventoryTab = "articles" | "form" | "entries" | "catalogs";
+type InventoryTab =
+  | "articles"
+  | "form"
+  | "entries"
+  | "locations"
+  | "transfers"
+  | "movements"
+  | "alerts"
+  | "catalogs";
 type StatusFilter = "all" | "active" | "inactive";
 
 export default function InventoryPage() {
@@ -52,9 +69,7 @@ export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<InventoryTab>("articles");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    null,
-  );
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [formHighlighted, setFormHighlighted] = useState(false);
   const formSectionRef = useRef<HTMLDivElement | null>(null);
@@ -67,6 +82,7 @@ export default function InventoryPage() {
     true,
   );
   const catalogsQuery = useInventoryCatalogsQuery(business_id, branch_id);
+  const locationsQuery = useInventoryLocationsQuery(business_id, branch_id, true);
   const defaultLocationQuery = useDefaultInventoryLocation(
     business_id,
     branch_id,
@@ -90,7 +106,6 @@ export default function InventoryPage() {
     selectedProductId,
     business_id,
     branch_id,
-    defaultLocationQuery.data?.id,
   );
   const createProductMutation = useCreateInventoryProductMutation(
     business_id,
@@ -112,7 +127,7 @@ export default function InventoryPage() {
     selectedProductId,
     business_id,
     branch_id,
-    defaultLocationQuery.data?.id,
+    null,
   );
   const entryMutation = useCreateInventoryEntryMutation(business_id, branch_id);
 
@@ -129,8 +144,7 @@ export default function InventoryPage() {
   }, [productsQuery.data, statusFilter]);
 
   const selectedProduct =
-    productsQuery.data?.find((product) => product.id === selectedProductId) ??
-    null;
+    productsQuery.data?.find((product) => product.id === selectedProductId) ?? null;
 
   useEffect(
     () => () => {
@@ -155,6 +169,10 @@ export default function InventoryPage() {
     { id: "articles", label: "Articulos" },
     { id: "form", label: "Alta de articulo" },
     { id: "entries", label: "Entradas" },
+    { id: "locations", label: "Ubicaciones" },
+    { id: "transfers", label: "Transferencias" },
+    { id: "movements", label: "Movimientos" },
+    { id: "alerts", label: "Alertas" },
     { id: "catalogs", label: "Catalogos" },
   ];
 
@@ -197,6 +215,13 @@ export default function InventoryPage() {
       : null;
   const canRenderProductForm =
     !editingProductId || Boolean(editingProductDetailQuery.data);
+  const locationsErrorMessage =
+    locationsQuery.error && !locationsQuery.data
+      ? getFriendlyErrorMessage(
+          locationsQuery.error,
+          "No se pudieron cargar las ubicaciones.",
+        )
+      : null;
 
   return (
     <div className="space-y-6">
@@ -210,9 +235,7 @@ export default function InventoryPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Negocio"
-            value={
-              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
-            }
+            value={contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
           />
           <MetricCard
             label="Sucursal"
@@ -244,8 +267,8 @@ export default function InventoryPage() {
             <CardHeader>
               <CardTitle>Articulos</CardTitle>
               <CardDescription>
-                Consulta articulos, revisa stock, movimientos y cambia su
-                estado.
+                Consulta articulos, revisa stock total, stock por ubicacion y
+                cambia su estado.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -301,7 +324,7 @@ export default function InventoryPage() {
               filteredProducts.length === 0 ? (
                 <EmptyState
                   title="Sin articulos"
-                  description="Ajusta la busqueda o crea un articulo nuevo desde la pestaña correspondiente."
+                  description="Ajusta la busqueda o crea un articulo nuevo desde la pestana correspondiente."
                 />
               ) : null}
 
@@ -309,12 +332,13 @@ export default function InventoryPage() {
                 {filteredProducts.map((product) => {
                   const deactivateLoading =
                     deactivateProductMutation.isPending &&
-                    deactivateProductMutation.variables?.productId ===
-                      product.id;
+                    deactivateProductMutation.variables?.productId === product.id;
                   const reactivateLoading =
                     reactivateProductMutation.isPending &&
-                    reactivateProductMutation.variables?.productId ===
-                      product.id;
+                    reactivateProductMutation.variables?.productId === product.id;
+                  const lowStock =
+                    product.trackInventory &&
+                    product.availableStock <= product.minStock;
 
                   return (
                     <div
@@ -330,12 +354,13 @@ export default function InventoryPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">{product.name}</p>
                             <Badge
-                              variant={
-                                product.isActive ? "success" : "destructive"
-                              }
+                              variant={product.isActive ? "success" : "destructive"}
                             >
                               {product.isActive ? "Activo" : "Inactivo"}
                             </Badge>
+                            {lowStock ? (
+                              <Badge variant="warning">Stock bajo</Badge>
+                            ) : null}
                           </div>
                           <p className="text-sm text-muted-foreground">
                             SKU: {product.sku ?? "sin SKU"} | Barcode:{" "}
@@ -361,7 +386,7 @@ export default function InventoryPage() {
                         />
                         <InfoCell
                           label="Stock"
-                          value={String(product.availableStock)}
+                          value={`${formatInventoryQuantity(product.availableStock)} uds`}
                         />
                         <InfoCell
                           label="Costo"
@@ -385,9 +410,7 @@ export default function InventoryPage() {
                           </Button>
                           <Button
                             type="button"
-                            variant={
-                              product.isActive ? "destructive" : "default"
-                            }
+                            variant={product.isActive ? "destructive" : "default"}
                             disabled={deactivateLoading || reactivateLoading}
                             onClick={async () => {
                               try {
@@ -466,10 +489,14 @@ export default function InventoryPage() {
                 ) : null}
 
                 {stockQuery.data ? (
-                  <StockLevelCard
-                    product_name={stockQuery.data.product_name}
-                    quantity={stockQuery.data.quantity}
-                    location_name={defaultLocationQuery.data?.name}
+                  <StockLevelCard stock={stockQuery.data} />
+                ) : stockQuery.error &&
+                  !stockQuery.data &&
+                  selectedProductDetailQuery.data?.trackInventory ? (
+                  <ErrorState
+                    message="No se pudo cargar el stock del articulo."
+                    actionLabel="Reintentar"
+                    onAction={() => void stockQuery.refetch()}
                   />
                 ) : selectedProductDetailQuery.data?.trackInventory ? (
                   <LoadingState message="Consultando stock..." />
@@ -481,21 +508,19 @@ export default function InventoryPage() {
                 )}
 
                 {selectedProductDetailQuery.data?.trackInventory &&
-                defaultLocationQuery.data &&
-                stockQuery.data ? (
+                stockQuery.data?.locations.length ? (
                   <StockAdjustmentForm
                     business_id={business_id}
                     branch_id={branch_id}
-                    location_id={defaultLocationQuery.data.id}
                     product_id={selectedProductId}
-                    current_quantity={stockQuery.data.quantity}
+                    locations={stockQuery.data.locations}
                     loading={adjustmentMutation.isPending}
                     onSubmit={async (payload) => {
                       try {
                         const response =
                           await adjustmentMutation.mutateAsync(payload);
                         toast.success(
-                          `Ajuste guardado. Diferencia: ${response.difference}.`,
+                          `Ajuste guardado. Diferencia: ${formatInventoryQuantity(response.difference)}.`,
                         );
                       } catch (error) {
                         toast.error(
@@ -506,14 +531,6 @@ export default function InventoryPage() {
                         );
                       }
                     }}
-                  />
-                ) : null}
-
-                {defaultLocationQuery.error ? (
-                  <NoticeBanner
-                    message="No se pudo resolver la ubicacion por defecto en este momento."
-                    actionLabel="Reintentar"
-                    onAction={() => void defaultLocationQuery.refetch()}
                   />
                 ) : null}
               </div>
@@ -566,10 +583,10 @@ export default function InventoryPage() {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">
-                          {movement.movementType.replaceAll("_", " ")}
+                          {getInventoryMovementLabel(movement.movementType)}
                         </p>
                         <p className="text-sm font-semibold">
-                          {movement.quantity} uds
+                          {formatInventoryQuantity(movement.quantity)} uds
                         </p>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -578,6 +595,9 @@ export default function InventoryPage() {
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Costo: {formatCurrency(movement.unitCost)}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Referencia: {movement.referenceLabel ?? "Sin referencia"}
                       </p>
                       {movement.notes ? (
                         <p className="mt-2 text-sm">{movement.notes}</p>
@@ -629,8 +649,7 @@ export default function InventoryPage() {
               branch_id={branch_id}
               catalogs={catalogsQuery.data}
               loading={
-                createProductMutation.isPending ||
-                updateProductMutation.isPending
+                createProductMutation.isPending || updateProductMutation.isPending
               }
               mode={editingProductId ? "edit" : "create"}
               initialProduct={editingProductDetailQuery.data}
@@ -650,8 +669,7 @@ export default function InventoryPage() {
                     return;
                   }
 
-                  const response =
-                    await createProductMutation.mutateAsync(payload);
+                  const response = await createProductMutation.mutateAsync(payload);
                   setSelectedProductId(response.product_id);
                   toast.success("Articulo creado correctamente.");
                 } catch (error) {
@@ -700,6 +718,67 @@ export default function InventoryPage() {
             onAction={() => void catalogsQuery.refetch()}
           />
         )
+      ) : null}
+
+      {activeTab === "locations" ? (
+        locationsQuery.data ? (
+          <InventoryLocationManager
+            businessId={business_id}
+            branchId={branch_id}
+            locations={locationsQuery.data}
+            loading={locationsQuery.isFetching && Boolean(locationsQuery.data)}
+            errorMessage={locationsErrorMessage}
+            onRetry={() => void locationsQuery.refetch()}
+          />
+        ) : locationsQuery.isLoading ? (
+          <LoadingState message="Cargando ubicaciones..." />
+        ) : (
+          <ErrorState
+            message={locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."}
+            actionLabel="Reintentar"
+            onAction={() => void locationsQuery.refetch()}
+          />
+        )
+      ) : null}
+
+      {activeTab === "transfers" ? (
+        locationsQuery.data ? (
+          <InventoryTransferForm
+            businessId={business_id}
+            branchId={branch_id}
+            locations={locationsQuery.data}
+          />
+        ) : locationsQuery.isLoading ? (
+          <LoadingState message="Cargando ubicaciones para transferencias..." />
+        ) : (
+          <ErrorState
+            message={locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."}
+            actionLabel="Reintentar"
+            onAction={() => void locationsQuery.refetch()}
+          />
+        )
+      ) : null}
+
+      {activeTab === "movements" ? (
+        locationsQuery.data ? (
+          <InventoryMovementsPanel
+            businessId={business_id}
+            branchId={branch_id}
+            locations={locationsQuery.data}
+          />
+        ) : locationsQuery.isLoading ? (
+          <LoadingState message="Cargando filtros de movimientos..." />
+        ) : (
+          <ErrorState
+            message={locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."}
+            actionLabel="Reintentar"
+            onAction={() => void locationsQuery.refetch()}
+          />
+        )
+      ) : null}
+
+      {activeTab === "alerts" ? (
+        <InventoryAlertsPanel businessId={business_id} branchId={branch_id} />
       ) : null}
 
       {activeTab === "catalogs" ? (

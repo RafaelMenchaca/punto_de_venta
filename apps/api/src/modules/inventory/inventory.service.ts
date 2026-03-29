@@ -4,13 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { InventoryMovementType } from '../../common/enums/inventory-movement-type.enum';
+import { StockAlertStatus } from '../../common/enums/stock-alert-status.enum';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
 import type { PrismaExecutor } from '../../prisma/prisma.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BusinessAccessService } from '../shared-db/business-access.service';
 import { StockService } from '../shared-db/stock.service';
+import type { CreateLocationDto } from './dto/create-location.dto';
 import type { CreateBrandDto } from './dto/create-brand.dto';
 import type { CreateCategoryDto } from './dto/create-category.dto';
 import type { CreateInventoryEntryDto } from './dto/create-inventory-entry.dto';
@@ -18,17 +21,33 @@ import type { CreateProductDto } from './dto/create-product.dto';
 import type { CreateSupplierDto } from './dto/create-supplier.dto';
 import type { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 import type { CreateTaxRateDto } from './dto/create-tax-rate.dto';
+import type { CreateTransferDto } from './dto/create-transfer.dto';
 import type { DeactivateProductDto } from './dto/deactivate-product.dto';
 import type { GetDefaultLocationDto } from './dto/get-default-location.dto';
 import type { GetInventoryCatalogsDto } from './dto/get-inventory-catalogs.dto';
+import type { ListInventoryAlertsDto } from './dto/list-inventory-alerts.dto';
+import type { ListInventoryMovementsDto } from './dto/list-inventory-movements.dto';
+import type { ListLocationsDto } from './dto/list-locations.dto';
 import type { GetProductDetailDto } from './dto/get-product-detail.dto';
 import type { GetProductMovementsDto } from './dto/get-product-movements.dto';
 import type { GetProductStockDto } from './dto/get-product-stock.dto';
 import type { ListProductsDto } from './dto/list-products.dto';
 import type { ReactivateProductDto } from './dto/reactivate-product.dto';
 import type { SearchProductsDto } from './dto/search-products.dto';
+import type { SetAlertStatusDto } from './dto/set-alert-status.dto';
+import type { SetLocationActiveDto } from './dto/set-location-active.dto';
+import type { UpdateLocationDto } from './dto/update-location.dto';
 import type { UpdateProductDto } from './dto/update-product.dto';
 import { InventoryRepository } from './inventory.repository';
+
+type LowStockAlertMetadata = {
+  availableStock?: number;
+  minStock?: number;
+  clearedAt?: string;
+  resolvedAt?: string;
+  dismissedAt?: string;
+  reopenedAt?: string;
+};
 
 @Injectable()
 export class InventoryService {
@@ -167,6 +186,311 @@ export class InventoryService {
       if (!taxRate) {
         throw new NotFoundException('La tasa seleccionada no esta disponible.');
       }
+    }
+  }
+
+  private buildLocationResponse(
+    location: Awaited<
+      ReturnType<InventoryRepository['getLocationById']>
+    > extends infer T
+      ? NonNullable<T>
+      : never,
+  ) {
+    return {
+      id: location.id,
+      businessId: location.businessId,
+      branchId: location.branchId,
+      name: location.name,
+      code: location.code,
+      isDefault: location.isDefault,
+      isActive: location.isActive,
+      createdAt: location.createdAt ?? null,
+      updatedAt: location.updatedAt ?? null,
+      totalQuantity: location.totalQuantity ?? 0,
+      reservedQuantity: location.reservedQuantity ?? 0,
+      availableQuantity: location.availableQuantity ?? 0,
+      productsCount: location.productsCount ?? 0,
+    };
+  }
+
+  private buildInventoryAlertResponse(
+    alert: Awaited<
+      ReturnType<InventoryRepository['getInventoryAlertById']>
+    > extends infer T
+      ? NonNullable<T>
+      : never,
+  ) {
+    const metadata: Record<string, unknown> =
+      alert.metadata && typeof alert.metadata === 'object'
+        ? (alert.metadata as Record<string, unknown>)
+        : {};
+    const availableStock =
+      typeof (metadata as { availableStock?: unknown }).availableStock ===
+      'number'
+        ? Number((metadata as { availableStock: number }).availableStock)
+        : null;
+    const locationId =
+      typeof (metadata as { locationId?: unknown }).locationId === 'string'
+        ? String((metadata as { locationId: string }).locationId)
+        : null;
+    const locationName =
+      typeof (metadata as { locationName?: unknown }).locationName === 'string'
+        ? String((metadata as { locationName: string }).locationName)
+        : null;
+    const minStock =
+      typeof (metadata as { minStock?: unknown }).minStock === 'number'
+        ? Number((metadata as { minStock: number }).minStock)
+        : (alert.minStock ?? null);
+
+    return {
+      id: alert.id,
+      businessId: alert.businessId,
+      branchId: alert.branchId,
+      productId: alert.productId,
+      productName: alert.productName ?? null,
+      productSku: alert.productSku ?? null,
+      alertType: alert.alertType,
+      title: alert.title,
+      message: alert.message,
+      status: alert.status,
+      locationId,
+      locationName,
+      minStock,
+      currentStock: availableStock,
+      metadata,
+      createdAt: alert.createdAt,
+      updatedAt: alert.updatedAt,
+    };
+  }
+
+  private getLowStockAlertContent(input: {
+    productName: string;
+    availableStock: number;
+    minStock: number;
+  }) {
+    return {
+      title: `Stock bajo: ${input.productName}`,
+      message: `Disponible ${input.availableStock} de minimo ${input.minStock}.`,
+    };
+  }
+
+  private buildMovementReferenceLabel(input: {
+    referenceType: string | null;
+    referenceId: string | null;
+  }) {
+    if (!input.referenceType || !input.referenceId) {
+      return null;
+    }
+
+    const suffix = input.referenceId.replace(/-/g, '').slice(-6).toUpperCase();
+
+    switch (input.referenceType) {
+      case 'goods_receipt':
+        return `REC-${suffix}`;
+      case 'sale':
+        return `VTA-${suffix}`;
+      case 'sale_cancel':
+        return `CAN-${suffix}`;
+      case 'refund':
+        return `DEV-${suffix}`;
+      case 'stock_adjustment':
+        return `AJU-${suffix}`;
+      case 'transfer':
+      case 'inventory_transfer':
+        return `TRF-${suffix}`;
+      case 'product_create':
+        return `ALT-${suffix}`;
+      default:
+        return suffix;
+    }
+  }
+
+  private buildMovementResponse(
+    movement: Awaited<
+      ReturnType<InventoryRepository['listProductMovements']>
+    > extends infer T
+      ? T extends Array<infer Item>
+        ? Item
+        : never
+      : never,
+  ) {
+    return {
+      id: movement.id,
+      productId: movement.productId,
+      productName: movement.productName,
+      productSku: movement.sku,
+      movementType: movement.movementType,
+      quantity: movement.quantity,
+      unitCost: movement.unitCost,
+      notes: movement.notes,
+      referenceType: movement.referenceType,
+      referenceId: movement.referenceId,
+      referenceLabel: this.buildMovementReferenceLabel(movement),
+      locationId: movement.locationId,
+      locationName: movement.locationName,
+      locationCode: movement.locationCode ?? null,
+      createdBy: movement.createdBy,
+      createdByName: movement.createdByName,
+      createdAt: movement.createdAt,
+    };
+  }
+
+  private async syncLowStockAlerts(
+    businessId: string,
+    branchId: string,
+    tx: PrismaExecutor,
+  ) {
+    const candidates = await this.inventoryRepository.listLowStockCandidates(
+      businessId,
+      branchId,
+      tx,
+    );
+    const candidateProductIds = new Set(
+      candidates.map((candidate) => candidate.productId),
+    );
+    const alertsByProductId = new Map(
+      (
+        await this.inventoryRepository.listLatestLowStockAlerts(
+          businessId,
+          branchId,
+          tx,
+        )
+      ).map((alert) => [alert.productId ?? '', alert]),
+    );
+
+    const nowIso = new Date().toISOString();
+
+    for (const candidate of candidates) {
+      const isLow = candidate.availableStock <= candidate.minStock;
+      const currentAlert = alertsByProductId.get(candidate.productId);
+      const currentMetadata: LowStockAlertMetadata =
+        currentAlert?.metadata && typeof currentAlert.metadata === 'object'
+          ? (currentAlert.metadata as LowStockAlertMetadata)
+          : {};
+      const currentAlertStatus = currentAlert?.status as
+        | StockAlertStatus
+        | undefined;
+
+      if (isLow) {
+        const content = this.getLowStockAlertContent({
+          productName: candidate.productName,
+          availableStock: candidate.availableStock,
+          minStock: candidate.minStock,
+        });
+
+        const nextMetadata: LowStockAlertMetadata = {
+          ...currentMetadata,
+          availableStock: candidate.availableStock,
+          minStock: candidate.minStock,
+        };
+
+        if (!currentAlert) {
+          await this.inventoryRepository.createInventoryAlert(
+            {
+              businessId,
+              branchId,
+              productId: candidate.productId,
+              alertType: 'low_stock',
+              title: content.title,
+              message: content.message,
+              status: StockAlertStatus.ACTIVE,
+              metadata: nextMetadata,
+            },
+            tx,
+          );
+          continue;
+        }
+
+        if (currentAlertStatus === StockAlertStatus.ACTIVE) {
+          await this.inventoryRepository.updateInventoryAlert(
+            {
+              alertId: currentAlert.id,
+              businessId,
+              branchId,
+              title: content.title,
+              message: content.message,
+              metadata: nextMetadata,
+            },
+            tx,
+          );
+          continue;
+        }
+
+        if (currentMetadata.clearedAt) {
+          await this.inventoryRepository.updateInventoryAlert(
+            {
+              alertId: currentAlert.id,
+              businessId,
+              branchId,
+              title: content.title,
+              message: content.message,
+              status: StockAlertStatus.ACTIVE,
+              metadata: {
+                ...nextMetadata,
+                clearedAt: undefined,
+                reopenedAt: nowIso,
+              },
+            },
+            tx,
+          );
+        }
+
+        continue;
+      }
+
+      if (!currentAlert) {
+        continue;
+      }
+
+      const nextMetadata: LowStockAlertMetadata = {
+        ...currentMetadata,
+        availableStock: candidate.availableStock,
+        minStock: candidate.minStock,
+        clearedAt: currentMetadata.clearedAt ?? nowIso,
+      };
+
+      await this.inventoryRepository.updateInventoryAlert(
+        {
+          alertId: currentAlert.id,
+          businessId,
+          branchId,
+          status:
+            currentAlertStatus === StockAlertStatus.ACTIVE
+              ? StockAlertStatus.RESOLVED
+              : undefined,
+          metadata: nextMetadata,
+        },
+        tx,
+      );
+    }
+
+    for (const [productId, alert] of alertsByProductId.entries()) {
+      if (!productId || candidateProductIds.has(productId)) {
+        continue;
+      }
+
+      const currentMetadata: LowStockAlertMetadata =
+        alert.metadata && typeof alert.metadata === 'object'
+          ? (alert.metadata as LowStockAlertMetadata)
+          : {};
+      const alertStatus = alert.status as StockAlertStatus;
+
+      await this.inventoryRepository.updateInventoryAlert(
+        {
+          alertId: alert.id,
+          businessId,
+          branchId,
+          status:
+            alertStatus === StockAlertStatus.ACTIVE
+              ? StockAlertStatus.RESOLVED
+              : undefined,
+          metadata: {
+            ...currentMetadata,
+            clearedAt: currentMetadata.clearedAt ?? nowIso,
+          },
+        },
+        tx,
+      );
     }
   }
 
@@ -324,6 +648,8 @@ export class InventoryService {
             tx,
           );
         }
+
+        await this.syncLowStockAlerts(input.business_id, input.branch_id, tx);
 
         const response = {
           product_id: product.id,
@@ -503,6 +829,8 @@ export class InventoryService {
             .map((barcode) => barcode.barcode),
         };
 
+        await this.syncLowStockAlerts(input.business_id, input.branch_id, tx);
+
         await this.auditService.logAction({
           businessId: input.business_id,
           actorUserId: user.id,
@@ -657,20 +985,98 @@ export class InventoryService {
       throw new NotFoundException('Producto no encontrado.');
     }
 
-    const availableStock = await this.stockService.getAvailableStock(
-      query.business_id,
-      query.branch_id,
-      productId,
-      query.location_id,
+    const locationBalances =
+      await this.inventoryRepository.listProductStockByLocation(
+        query.business_id,
+        query.branch_id,
+        productId,
+      );
+
+    const totalQuantity = locationBalances.reduce(
+      (sum, balance) => sum + balance.quantity,
+      0,
     );
+    const totalReservedQuantity = locationBalances.reduce(
+      (sum, balance) => sum + balance.reservedQuantity,
+      0,
+    );
+    const totalAvailableQuantity = locationBalances.reduce(
+      (sum, balance) => sum + balance.availableQuantity,
+      0,
+    );
+    const selectedLocation = query.location_id
+      ? (locationBalances.find(
+          (balance) => balance.locationId === query.location_id,
+        ) ?? null)
+      : null;
+
+    if (query.location_id && !selectedLocation) {
+      throw new NotFoundException(
+        'La ubicacion seleccionada no pertenece a la sucursal.',
+      );
+    }
+
+    const defaultLocation =
+      locationBalances.find((balance) => balance.isDefault) ?? null;
 
     return {
       product_id: product.id,
       product_name: product.name,
       track_inventory: product.trackInventory,
-      quantity: availableStock,
+      quantity: selectedLocation
+        ? selectedLocation.availableQuantity
+        : totalAvailableQuantity,
+      reserved_quantity: selectedLocation
+        ? selectedLocation.reservedQuantity
+        : totalReservedQuantity,
+      available_quantity: selectedLocation
+        ? selectedLocation.availableQuantity
+        : totalAvailableQuantity,
       location_id: query.location_id ?? null,
+      total_quantity: totalQuantity,
+      total_reserved_quantity: totalReservedQuantity,
+      total_available_quantity: totalAvailableQuantity,
+      default_location_id: defaultLocation?.locationId ?? null,
+      default_location_name: defaultLocation?.locationName ?? null,
+      locations: locationBalances.map((balance) => ({
+        location_id: balance.locationId,
+        location_name: balance.locationName,
+        location_code: balance.locationCode,
+        is_default: balance.isDefault,
+        is_active: balance.isActive,
+        quantity: balance.quantity,
+        reserved_quantity: balance.reservedQuantity,
+        available_quantity: balance.availableQuantity,
+      })),
     };
+  }
+
+  async listInventoryMovements(
+    query: ListInventoryMovementsDto,
+    user: RequestUser,
+  ) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      query.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      query.business_id,
+      query.branch_id,
+    );
+
+    const movements = await this.inventoryRepository.listInventoryMovements(
+      query.business_id,
+      query.branch_id,
+      {
+        productId: query.product_id,
+        locationId: query.location_id,
+        movementType: query.movement_type,
+        limit: query.limit,
+      },
+    );
+
+    return movements.map((movement) => this.buildMovementResponse(movement));
   }
 
   async getProductMovements(
@@ -697,12 +1103,14 @@ export class InventoryService {
       throw new NotFoundException('Producto no encontrado.');
     }
 
-    return this.inventoryRepository.listProductMovements(
+    const movements = await this.inventoryRepository.listProductMovements(
       query.business_id,
       query.branch_id,
       productId,
       query.limit ?? 20,
     );
+
+    return movements.map((movement) => this.buildMovementResponse(movement));
   }
 
   async getDefaultLocation(query: GetDefaultLocationDto, user: RequestUser) {
@@ -720,6 +1128,671 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+  }
+
+  async listLocations(query: ListLocationsDto, user: RequestUser) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      query.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      query.business_id,
+      query.branch_id,
+    );
+
+    const locations = await this.inventoryRepository.listLocationsForManagement(
+      query.business_id,
+      query.branch_id,
+      {
+        includeInactive: query.include_inactive ?? true,
+      },
+    );
+
+    return locations.map((location) => this.buildLocationResponse(location));
+  }
+
+  async createLocation(input: CreateLocationDto, user: RequestUser) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      input.business_id,
+      input.branch_id,
+    );
+
+    const name = input.name.trim();
+    const code = input.code.trim().toUpperCase();
+
+    if (!name) {
+      throw new BadRequestException(
+        'El nombre de la ubicacion es obligatorio.',
+      );
+    }
+
+    if (!code) {
+      throw new BadRequestException(
+        'El codigo de la ubicacion es obligatorio.',
+      );
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const activeLocations =
+          await this.inventoryRepository.countActiveLocations(
+            input.business_id,
+            input.branch_id,
+            tx,
+          );
+        const shouldBeDefault = input.is_default ?? activeLocations === 0;
+
+        if (shouldBeDefault) {
+          await this.inventoryRepository.clearDefaultLocation(
+            input.business_id,
+            input.branch_id,
+            tx,
+          );
+        }
+
+        const location = await this.inventoryRepository.createLocation(
+          {
+            businessId: input.business_id,
+            branchId: input.branch_id,
+            name,
+            code,
+            isDefault: shouldBeDefault,
+          },
+          tx,
+        );
+
+        const response = this.buildLocationResponse(location);
+
+        await this.auditService.logAction({
+          businessId: input.business_id,
+          actorUserId: user.id,
+          action: 'create_inventory_location',
+          entityType: 'inventory_location',
+          entityId: location.id,
+          afterJson: response,
+          tx,
+        });
+
+        return response;
+      });
+    } catch (error) {
+      if (this.isDuplicateKeyError(error)) {
+        throw new ConflictException(
+          'Ya existe una ubicacion con ese codigo en la sucursal.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async updateLocation(
+    locationId: string,
+    input: UpdateLocationDto,
+    user: RequestUser,
+  ) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      input.business_id,
+      input.branch_id,
+    );
+
+    const currentLocation = await this.inventoryRepository.getLocationById(
+      input.business_id,
+      input.branch_id,
+      locationId,
+    );
+
+    if (!currentLocation) {
+      throw new NotFoundException('Ubicacion no encontrada.');
+    }
+
+    if (currentLocation.isDefault && input.is_default === false) {
+      throw new BadRequestException(
+        'Selecciona otra ubicacion como default antes de quitar esta como predeterminada.',
+      );
+    }
+
+    if (!currentLocation.isActive && input.is_default) {
+      throw new BadRequestException(
+        'No puedes marcar como default una ubicacion inactiva.',
+      );
+    }
+
+    const nextName = input.name?.trim();
+    const nextCode = input.code?.trim().toUpperCase();
+
+    if (nextName !== undefined && !nextName) {
+      throw new BadRequestException(
+        'El nombre de la ubicacion es obligatorio.',
+      );
+    }
+
+    if (nextCode !== undefined && !nextCode) {
+      throw new BadRequestException(
+        'El codigo de la ubicacion es obligatorio.',
+      );
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (input.is_default) {
+          await this.inventoryRepository.clearDefaultLocation(
+            input.business_id,
+            input.branch_id,
+            tx,
+            locationId,
+          );
+        }
+
+        const updatedLocation = await this.inventoryRepository.updateLocation(
+          {
+            businessId: input.business_id,
+            branchId: input.branch_id,
+            locationId,
+            name: nextName,
+            code: nextCode,
+            isDefault: input.is_default,
+          },
+          tx,
+        );
+
+        if (!updatedLocation) {
+          throw new NotFoundException('Ubicacion no encontrada.');
+        }
+
+        const stockSummary =
+          await this.inventoryRepository.getLocationBalanceSummary(
+            input.business_id,
+            input.branch_id,
+            locationId,
+            tx,
+          );
+
+        const response = this.buildLocationResponse({
+          ...updatedLocation,
+          ...stockSummary,
+        });
+
+        await this.auditService.logAction({
+          businessId: input.business_id,
+          actorUserId: user.id,
+          action: 'update_inventory_location',
+          entityType: 'inventory_location',
+          entityId: locationId,
+          beforeJson: currentLocation,
+          afterJson: response,
+          tx,
+        });
+
+        return response;
+      });
+    } catch (error) {
+      if (this.isDuplicateKeyError(error)) {
+        throw new ConflictException(
+          'Ya existe una ubicacion con ese codigo en la sucursal.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async setLocationActive(
+    locationId: string,
+    input: SetLocationActiveDto,
+    user: RequestUser,
+    isActive: boolean,
+  ) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      input.business_id,
+      input.branch_id,
+    );
+
+    const currentLocation = await this.inventoryRepository.getLocationById(
+      input.business_id,
+      input.branch_id,
+      locationId,
+    );
+
+    if (!currentLocation) {
+      throw new NotFoundException('Ubicacion no encontrada.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (!isActive) {
+        const activeLocations =
+          await this.inventoryRepository.countActiveLocations(
+            input.business_id,
+            input.branch_id,
+            tx,
+          );
+
+        if (activeLocations <= 1 && currentLocation.isActive) {
+          throw new BadRequestException(
+            'Debe permanecer al menos una ubicacion activa en la sucursal.',
+          );
+        }
+
+        const stockSummary =
+          await this.inventoryRepository.getLocationBalanceSummary(
+            input.business_id,
+            input.branch_id,
+            locationId,
+            tx,
+          );
+
+        if (
+          stockSummary.totalQuantity > 0 ||
+          stockSummary.reservedQuantity > 0
+        ) {
+          throw new BadRequestException(
+            'No puedes desactivar una ubicacion que todavia tiene stock.',
+          );
+        }
+      }
+
+      const updatedLocation = await this.inventoryRepository.setLocationActive(
+        input.business_id,
+        input.branch_id,
+        locationId,
+        isActive,
+        tx,
+      );
+
+      if (!updatedLocation) {
+        throw new NotFoundException('Ubicacion no encontrada.');
+      }
+
+      if (!isActive && currentLocation.isDefault) {
+        const nextDefault =
+          await this.inventoryRepository.getNextActiveLocation(
+            input.business_id,
+            input.branch_id,
+            locationId,
+            tx,
+          );
+
+        if (nextDefault) {
+          await this.inventoryRepository.clearDefaultLocation(
+            input.business_id,
+            input.branch_id,
+            tx,
+            nextDefault.id,
+          );
+          await this.inventoryRepository.updateLocation(
+            {
+              businessId: input.business_id,
+              branchId: input.branch_id,
+              locationId: nextDefault.id,
+              isDefault: true,
+            },
+            tx,
+          );
+          updatedLocation.isDefault = false;
+        }
+      }
+
+      if (isActive) {
+        const activeLocations =
+          await this.inventoryRepository.listLocationsForManagement(
+            input.business_id,
+            input.branch_id,
+            {
+              includeInactive: false,
+            },
+            tx,
+          );
+        const hasDefault = activeLocations.some(
+          (location) => location.isDefault,
+        );
+
+        if (!hasDefault) {
+          await this.inventoryRepository.clearDefaultLocation(
+            input.business_id,
+            input.branch_id,
+            tx,
+            locationId,
+          );
+          await this.inventoryRepository.updateLocation(
+            {
+              businessId: input.business_id,
+              branchId: input.branch_id,
+              locationId,
+              isDefault: true,
+            },
+            tx,
+          );
+          updatedLocation.isDefault = true;
+        }
+      }
+
+      const response = this.buildLocationResponse(updatedLocation);
+
+      await this.auditService.logAction({
+        businessId: input.business_id,
+        actorUserId: user.id,
+        action: isActive
+          ? 'reactivate_inventory_location'
+          : 'deactivate_inventory_location',
+        entityType: 'inventory_location',
+        entityId: locationId,
+        beforeJson: currentLocation,
+        afterJson: response,
+        tx,
+      });
+
+      return response;
+    });
+  }
+
+  async createTransfer(input: CreateTransferDto, user: RequestUser) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      input.business_id,
+      input.branch_id,
+    );
+
+    if (input.from_location_id === input.to_location_id) {
+      throw new BadRequestException(
+        'Selecciona ubicaciones distintas para transferir stock.',
+      );
+    }
+
+    if (input.quantity <= 0) {
+      throw new BadRequestException(
+        'La cantidad a transferir debe ser mayor a cero.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const [product, fromLocation, toLocation] = await Promise.all([
+        this.inventoryRepository.getProductById(
+          input.business_id,
+          input.product_id,
+          tx,
+        ),
+        this.inventoryRepository.getLocationById(
+          input.business_id,
+          input.branch_id,
+          input.from_location_id,
+          tx,
+        ),
+        this.inventoryRepository.getLocationById(
+          input.business_id,
+          input.branch_id,
+          input.to_location_id,
+          tx,
+        ),
+      ]);
+
+      if (!product) {
+        throw new NotFoundException('Producto no encontrado.');
+      }
+
+      if (!product.trackInventory) {
+        throw new BadRequestException(
+          'El articulo seleccionado no controla inventario.',
+        );
+      }
+
+      if (!fromLocation || !fromLocation.isActive) {
+        throw new NotFoundException(
+          'La ubicacion origen no esta disponible en la sucursal.',
+        );
+      }
+
+      if (!toLocation || !toLocation.isActive) {
+        throw new NotFoundException(
+          'La ubicacion destino no esta disponible en la sucursal.',
+        );
+      }
+
+      const fromBalance = await this.inventoryRepository.lockStockBalance(
+        input.business_id,
+        input.branch_id,
+        input.from_location_id,
+        input.product_id,
+        tx,
+      );
+      const toBalance = await this.inventoryRepository.lockStockBalance(
+        input.business_id,
+        input.branch_id,
+        input.to_location_id,
+        input.product_id,
+        tx,
+      );
+
+      const availableOrigin =
+        (fromBalance?.quantity ?? 0) - (fromBalance?.reservedQuantity ?? 0);
+
+      if (availableOrigin < input.quantity) {
+        throw new BadRequestException(
+          'No hay stock suficiente en la ubicacion origen.',
+        );
+      }
+
+      const transferReferenceId = randomUUID();
+      const nextOriginQuantity = (fromBalance?.quantity ?? 0) - input.quantity;
+      const nextDestinationQuantity =
+        (toBalance?.quantity ?? 0) + input.quantity;
+
+      if (fromBalance) {
+        await this.inventoryRepository.updateStockBalance(
+          {
+            businessId: input.business_id,
+            branchId: input.branch_id,
+            locationId: input.from_location_id,
+            productId: input.product_id,
+            quantity: nextOriginQuantity,
+          },
+          tx,
+        );
+      }
+
+      if (toBalance) {
+        await this.inventoryRepository.updateStockBalance(
+          {
+            businessId: input.business_id,
+            branchId: input.branch_id,
+            locationId: input.to_location_id,
+            productId: input.product_id,
+            quantity: nextDestinationQuantity,
+          },
+          tx,
+        );
+      } else {
+        await this.inventoryRepository.insertStockBalance(
+          {
+            businessId: input.business_id,
+            branchId: input.branch_id,
+            locationId: input.to_location_id,
+            productId: input.product_id,
+            quantity: input.quantity,
+          },
+          tx,
+        );
+      }
+
+      await this.inventoryRepository.createInventoryMovement(
+        {
+          businessId: input.business_id,
+          branchId: input.branch_id,
+          locationId: input.from_location_id,
+          productId: input.product_id,
+          movementType: InventoryMovementType.TRANSFER_OUT,
+          quantity: input.quantity,
+          referenceType: 'inventory_transfer',
+          referenceId: transferReferenceId,
+          unitCost: product.costPrice,
+          notes: input.notes?.trim() || 'Transferencia de inventario',
+          actorUserId: user.id,
+        },
+        tx,
+      );
+
+      await this.inventoryRepository.createInventoryMovement(
+        {
+          businessId: input.business_id,
+          branchId: input.branch_id,
+          locationId: input.to_location_id,
+          productId: input.product_id,
+          movementType: InventoryMovementType.TRANSFER_IN,
+          quantity: input.quantity,
+          referenceType: 'inventory_transfer',
+          referenceId: transferReferenceId,
+          unitCost: product.costPrice,
+          notes: input.notes?.trim() || 'Transferencia de inventario',
+          actorUserId: user.id,
+        },
+        tx,
+      );
+
+      await this.syncLowStockAlerts(input.business_id, input.branch_id, tx);
+
+      const response = {
+        transfer_id: transferReferenceId,
+        product_id: product.id,
+        product_name: product.name,
+        quantity: input.quantity,
+        from_location_id: fromLocation.id,
+        from_location_name: fromLocation.name,
+        to_location_id: toLocation.id,
+        to_location_name: toLocation.name,
+        notes: input.notes?.trim() || 'Transferencia de inventario',
+        created_at: new Date(),
+      };
+
+      await this.auditService.logAction({
+        businessId: input.business_id,
+        actorUserId: user.id,
+        action: 'create_inventory_transfer',
+        entityType: 'inventory_transfer',
+        entityId: transferReferenceId,
+        afterJson: response,
+        tx,
+      });
+
+      return response;
+    });
+  }
+
+  async listInventoryAlerts(query: ListInventoryAlertsDto, user: RequestUser) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      query.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      query.business_id,
+      query.branch_id,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.syncLowStockAlerts(query.business_id, query.branch_id, tx);
+
+      const alerts = await this.inventoryRepository.listInventoryAlerts(
+        query.business_id,
+        query.branch_id,
+        {
+          status: query.status ?? StockAlertStatus.ACTIVE,
+          limit: query.limit,
+        },
+        tx,
+      );
+
+      return alerts.map((alert) => this.buildInventoryAlertResponse(alert));
+    });
+  }
+
+  async setInventoryAlertStatus(
+    alertId: string,
+    input: SetAlertStatusDto,
+    user: RequestUser,
+    status: StockAlertStatus.RESOLVED | StockAlertStatus.DISMISSED,
+  ) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      input.business_id,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      input.business_id,
+      input.branch_id,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const currentAlert = await this.inventoryRepository.getInventoryAlertById(
+        input.business_id,
+        input.branch_id,
+        alertId,
+        tx,
+      );
+
+      if (!currentAlert) {
+        throw new NotFoundException('Alerta no encontrada.');
+      }
+
+      const currentMetadata =
+        currentAlert.metadata && typeof currentAlert.metadata === 'object'
+          ? currentAlert.metadata
+          : {};
+      const nowIso = new Date().toISOString();
+      const nextMetadata =
+        status === StockAlertStatus.RESOLVED
+          ? { ...currentMetadata, resolvedAt: nowIso }
+          : { ...currentMetadata, dismissedAt: nowIso };
+
+      const updatedAlert = await this.inventoryRepository.updateInventoryAlert(
+        {
+          alertId,
+          businessId: input.business_id,
+          branchId: input.branch_id,
+          status,
+          metadata: nextMetadata,
+        },
+        tx,
+      );
+
+      if (!updatedAlert) {
+        throw new NotFoundException('Alerta no encontrada.');
+      }
+
+      await this.auditService.logAction({
+        businessId: input.business_id,
+        actorUserId: user.id,
+        action:
+          status === StockAlertStatus.RESOLVED
+            ? 'resolve_inventory_alert'
+            : 'dismiss_inventory_alert',
+        entityType: 'alert',
+        entityId: alertId,
+        beforeJson: currentAlert,
+        afterJson: updatedAlert,
+        tx,
+      });
+
+      return this.buildInventoryAlertResponse(updatedAlert);
+    });
   }
 
   async getCatalogs(query: GetInventoryCatalogsDto, user: RequestUser) {
@@ -1007,6 +2080,8 @@ export class InventoryService {
           },
           tx,
         );
+
+        await this.syncLowStockAlerts(input.business_id, input.branch_id, tx);
       }
 
       const result = {
@@ -1184,6 +2259,8 @@ export class InventoryService {
           unit_cost: unitCost,
         });
       }
+
+      await this.syncLowStockAlerts(input.business_id, input.branch_id, tx);
 
       const response = {
         entry_id: entry.id,

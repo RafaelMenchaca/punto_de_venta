@@ -12,36 +12,54 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { StockAdjustmentPayload } from "@/features/inventory/types";
+import { formatInventoryQuantity } from "@/features/inventory/presentation";
+import type {
+  ProductStockLocation,
+  StockAdjustmentPayload,
+} from "@/features/inventory/types";
 
 export function StockAdjustmentForm({
   business_id,
   branch_id,
-  location_id,
   product_id,
-  current_quantity,
+  locations,
   loading,
   onSubmit,
 }: {
   business_id: string;
   branch_id: string;
-  location_id: string;
   product_id: string;
-  current_quantity: number;
+  locations: ProductStockLocation[];
   loading: boolean;
   onSubmit: (payload: StockAdjustmentPayload) => Promise<void>;
 }) {
-  const [newQuantity, setNewQuantity] = useState(String(current_quantity));
+  const defaultLocationId =
+    locations.find((location) => location.isDefault)?.locationId ??
+    locations[0]?.locationId ??
+    "";
+  const [locationId, setLocationId] = useState(defaultLocationId);
+  const selectedLocation =
+    locations.find((location) => location.locationId === locationId) ?? null;
+  const [newQuantity, setNewQuantity] = useState(
+    String(selectedLocation?.quantity ?? 0),
+  );
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    setNewQuantity(String(current_quantity));
-  }, [current_quantity]);
+    setLocationId(defaultLocationId);
+  }, [defaultLocationId]);
+
+  useEffect(() => {
+    setNewQuantity(String(selectedLocation?.quantity ?? 0));
+  }, [selectedLocation?.locationId, selectedLocation?.quantity]);
 
   const numericQuantity = Number(newQuantity);
   const isInvalidQuantity = useMemo(
-    () => Number.isNaN(numericQuantity) || numericQuantity < 0,
-    [numericQuantity],
+    () =>
+      !selectedLocation ||
+      Number.isNaN(numericQuantity) ||
+      numericQuantity < 0,
+    [numericQuantity, selectedLocation],
   );
 
   return (
@@ -49,16 +67,43 @@ export function StockAdjustmentForm({
       <CardHeader>
         <CardTitle>Ajuste manual</CardTitle>
         <CardDescription>
-          Define la nueva cantidad fisica y registra el motivo.
+          Elige la ubicacion, define la cantidad fisica y registra el motivo.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="adjustment-location">Ubicacion</Label>
+            <select
+              id="adjustment-location"
+              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={locationId}
+              onChange={(event) => setLocationId(event.target.value)}
+            >
+              {locations.map((location) => (
+                <option key={location.locationId} value={location.locationId}>
+                  {location.locationName}
+                  {location.isDefault ? " (Default)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="rounded-2xl bg-muted/70 p-4 text-sm">
+            Stock actual:{" "}
+            <span className="font-semibold">
+              {formatInventoryQuantity(selectedLocation?.quantity ?? 0)} uds
+            </span>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="new-quantity">Nueva cantidad</Label>
           <Input
             id="new-quantity"
             type="number"
             min="0"
+            step="0.001"
             value={newQuantity}
             onChange={(event) => setNewQuantity(event.target.value)}
           />
@@ -77,16 +122,20 @@ export function StockAdjustmentForm({
         <Button
           className="w-full"
           disabled={loading || isInvalidQuantity || reason.trim().length === 0}
-          onClick={() =>
-            onSubmit({
+          onClick={() => {
+            if (!selectedLocation) {
+              return;
+            }
+
+            return onSubmit({
               business_id,
               branch_id,
-              location_id,
+              location_id: selectedLocation.locationId,
               product_id,
               new_quantity: numericQuantity,
               reason: reason.trim(),
-            })
-          }
+            });
+          }}
         >
           {loading ? "Guardando..." : "Guardar ajuste"}
         </Button>

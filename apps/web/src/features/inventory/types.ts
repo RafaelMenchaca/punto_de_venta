@@ -1,3 +1,15 @@
+export type InventoryMovementType =
+  | "purchase_in"
+  | "sale_out"
+  | "refund_in"
+  | "adjustment_in"
+  | "adjustment_out"
+  | "transfer_in"
+  | "transfer_out"
+  | "return_to_supplier";
+
+export type InventoryAlertStatus = "active" | "resolved" | "dismissed";
+
 export interface InventoryLocation {
   id: string;
   businessId: string;
@@ -13,6 +25,23 @@ export interface InventoryLocationOption {
   code: string;
   isDefault: boolean;
   isActive: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  totalQuantity?: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
+  productsCount?: number;
+}
+
+export interface ProductStockLocation {
+  locationId: string;
+  locationName: string;
+  locationCode: string;
+  isDefault: boolean;
+  isActive: boolean;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
 }
 
 export interface ProductStock {
@@ -20,7 +49,15 @@ export interface ProductStock {
   product_name: string;
   track_inventory: boolean;
   quantity: number;
+  reserved_quantity: number;
+  available_quantity: number;
   location_id: string | null;
+  total_quantity?: number;
+  total_reserved_quantity?: number;
+  total_available_quantity?: number;
+  default_location_id?: string | null;
+  default_location_name?: string | null;
+  locations: ProductStockLocation[];
 }
 
 export interface InventoryProductListItem {
@@ -69,16 +106,41 @@ export interface InventoryProductDetail {
 
 export interface InventoryMovement {
   id: string;
-  movementType: string;
+  movementType: InventoryMovementType;
   quantity: number;
   unitCost: number;
   notes: string | null;
   referenceType: string | null;
+  referenceId: string | null;
+  referenceLabel: string | null;
   locationId: string;
   locationName: string;
+  productId: string;
+  productName: string;
+  productSku: string | null;
   createdBy: string | null;
   createdByName: string | null;
   createdAt: string;
+}
+
+export interface InventoryAlert {
+  id: string;
+  businessId: string;
+  branchId: string | null;
+  productId: string | null;
+  productName: string | null;
+  productSku: string | null;
+  alertType: string;
+  title: string;
+  message: string;
+  status: InventoryAlertStatus;
+  locationId: string | null;
+  locationName: string | null;
+  currentStock: number | null;
+  minStock: number | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface InventoryCatalogOption {
@@ -217,4 +279,48 @@ export interface CreateInventorySupplierPayload {
   email?: string;
   phone?: string;
   notes?: string;
+}
+
+export interface CreateInventoryLocationPayload {
+  business_id: string;
+  branch_id: string;
+  name: string;
+  code: string;
+  is_default?: boolean;
+}
+
+export interface UpdateInventoryLocationPayload {
+  business_id: string;
+  branch_id: string;
+  name: string;
+  code: string;
+  is_default?: boolean;
+}
+
+export interface SetInventoryLocationActivePayload {
+  business_id: string;
+  branch_id: string;
+}
+
+export interface InventoryTransferPayload {
+  business_id: string;
+  branch_id: string;
+  product_id: string;
+  from_location_id: string;
+  to_location_id: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface InventoryTransferResponse {
+  transferId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  fromLocationId: string;
+  fromLocationName: string;
+  toLocationId: string;
+  toLocationName: string;
+  notes: string;
+  createdAt: string;
 }

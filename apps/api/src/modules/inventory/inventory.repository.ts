@@ -100,17 +100,28 @@ export interface InventoryLocationOptionRecord {
   code: string;
   isDefault: boolean;
   isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  totalQuantity?: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
+  productsCount?: number;
 }
 
 export interface InventoryMovementRecord {
   id: string;
+  productId: string;
+  productName: string;
+  sku: string | null;
   movementType: string;
   quantity: number;
   unitCost: number;
   notes: string | null;
   referenceType: string | null;
+  referenceId: string | null;
   locationId: string;
   locationName: string;
+  locationCode?: string | null;
   createdBy: string | null;
   createdByName: string | null;
   createdAt: Date;
@@ -118,7 +129,38 @@ export interface InventoryMovementRecord {
 
 export interface StockBalanceRecord {
   productId: string;
+  locationId?: string;
   quantity: number;
+  reservedQuantity?: number;
+}
+
+export interface ProductStockLocationRecord {
+  locationId: string;
+  locationName: string;
+  locationCode: string;
+  isDefault: boolean;
+  isActive: boolean;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+}
+
+export interface InventoryAlertRecord {
+  id: string;
+  businessId: string;
+  branchId: string | null;
+  productId: string | null;
+  alertType: string;
+  title: string;
+  message: string;
+  status: string;
+  metadata: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  productName?: string | null;
+  productSku?: string | null;
+  minStock?: number | null;
+  availableStock?: number | null;
 }
 
 export interface GoodsReceiptRecord {
@@ -822,6 +864,332 @@ export class InventoryRepository {
     );
   }
 
+  async listLocationsForManagement(
+    businessId: string,
+    branchId: string,
+    options?: { includeInactive?: boolean },
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+
+    return executor.$queryRaw<InventoryLocationOptionRecord[]>(
+      Prisma.sql`
+        SELECT
+          il.id,
+          il.business_id AS "businessId",
+          il.branch_id AS "branchId",
+          il.name,
+          il.code,
+          il.is_default AS "isDefault",
+          il.is_active AS "isActive",
+          il.created_at AS "createdAt",
+          il.updated_at AS "updatedAt",
+          COALESCE(stock.total_quantity, 0)::double precision AS "totalQuantity",
+          COALESCE(stock.reserved_quantity, 0)::double precision AS "reservedQuantity",
+          COALESCE(stock.available_quantity, 0)::double precision AS "availableQuantity",
+          COALESCE(stock.products_count, 0)::double precision AS "productsCount"
+        FROM inventory_locations il
+        LEFT JOIN (
+          SELECT
+            location_id,
+            SUM(quantity)::double precision AS total_quantity,
+            SUM(reserved_quantity)::double precision AS reserved_quantity,
+            SUM(quantity - reserved_quantity)::double precision AS available_quantity,
+            COUNT(*)::double precision AS products_count
+          FROM stock_balances
+          WHERE business_id = CAST(${businessId} AS uuid)
+            AND branch_id = CAST(${branchId} AS uuid)
+          GROUP BY location_id
+        ) stock ON stock.location_id = il.id
+        WHERE il.business_id = CAST(${businessId} AS uuid)
+          AND il.branch_id = CAST(${branchId} AS uuid)
+          ${
+            options?.includeInactive
+              ? Prisma.empty
+              : Prisma.sql`AND il.is_active = true`
+          }
+        ORDER BY il.is_default DESC, il.is_active DESC, il.name ASC
+      `,
+    );
+  }
+
+  async getLocationById(
+    businessId: string,
+    branchId: string,
+    locationId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const rows = await executor.$queryRaw<InventoryLocationOptionRecord[]>(
+      Prisma.sql`
+        SELECT
+          id,
+          business_id AS "businessId",
+          branch_id AS "branchId",
+          name,
+          code,
+          is_default AS "isDefault",
+          is_active AS "isActive",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM inventory_locations
+        WHERE business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          AND id = CAST(${locationId} AS uuid)
+        LIMIT 1
+      `,
+    );
+
+    return rows[0] ?? null;
+  }
+
+  async createLocation(
+    input: {
+      businessId: string;
+      branchId: string;
+      name: string;
+      code: string;
+      isDefault: boolean;
+    },
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<InventoryLocationOptionRecord[]>(Prisma.sql`
+      INSERT INTO inventory_locations (
+        business_id,
+        branch_id,
+        name,
+        code,
+        is_default,
+        is_active,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        CAST(${input.businessId} AS uuid),
+        CAST(${input.branchId} AS uuid),
+        ${input.name},
+        ${input.code},
+        ${input.isDefault},
+        true,
+        NOW(),
+        NOW()
+      )
+      RETURNING
+        id,
+        business_id AS "businessId",
+        branch_id AS "branchId",
+        name,
+        code,
+        is_default AS "isDefault",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `);
+
+    return rows[0]!;
+  }
+
+  async updateLocation(
+    input: {
+      businessId: string;
+      branchId: string;
+      locationId: string;
+      name?: string;
+      code?: string;
+      isDefault?: boolean;
+    },
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<InventoryLocationOptionRecord[]>(Prisma.sql`
+      UPDATE inventory_locations
+      SET
+        name = COALESCE(${input.name ?? null}, name),
+        code = COALESCE(${input.code ?? null}, code),
+        is_default = COALESCE(${input.isDefault ?? null}, is_default),
+        updated_at = NOW()
+      WHERE business_id = CAST(${input.businessId} AS uuid)
+        AND branch_id = CAST(${input.branchId} AS uuid)
+        AND id = CAST(${input.locationId} AS uuid)
+      RETURNING
+        id,
+        business_id AS "businessId",
+        branch_id AS "branchId",
+        name,
+        code,
+        is_default AS "isDefault",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `);
+
+    return rows[0] ?? null;
+  }
+
+  async clearDefaultLocation(
+    businessId: string,
+    branchId: string,
+    tx: PrismaExecutor,
+    exceptLocationId?: string,
+  ) {
+    await tx.$executeRaw(
+      Prisma.sql`
+        UPDATE inventory_locations
+        SET
+          is_default = false,
+          updated_at = NOW()
+        WHERE business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          ${
+            exceptLocationId
+              ? Prisma.sql`AND id <> CAST(${exceptLocationId} AS uuid)`
+              : Prisma.empty
+          }
+      `,
+    );
+  }
+
+  async setLocationActive(
+    businessId: string,
+    branchId: string,
+    locationId: string,
+    isActive: boolean,
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<InventoryLocationOptionRecord[]>(Prisma.sql`
+      UPDATE inventory_locations
+      SET
+        is_active = ${isActive},
+        updated_at = NOW()
+      WHERE business_id = CAST(${businessId} AS uuid)
+        AND branch_id = CAST(${branchId} AS uuid)
+        AND id = CAST(${locationId} AS uuid)
+      RETURNING
+        id,
+        business_id AS "businessId",
+        branch_id AS "branchId",
+        name,
+        code,
+        is_default AS "isDefault",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `);
+
+    return rows[0] ?? null;
+  }
+
+  async countActiveLocations(
+    businessId: string,
+    branchId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const rows = await executor.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+      SELECT COUNT(*)::double precision AS total
+      FROM inventory_locations
+      WHERE business_id = CAST(${businessId} AS uuid)
+        AND branch_id = CAST(${branchId} AS uuid)
+        AND is_active = true
+    `);
+
+    return rows[0]?.total ?? 0;
+  }
+
+  async getNextActiveLocation(
+    businessId: string,
+    branchId: string,
+    excludedLocationId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const rows = await executor.$queryRaw<InventoryLocationOptionRecord[]>(
+      Prisma.sql`
+        SELECT
+          id,
+          business_id AS "businessId",
+          branch_id AS "branchId",
+          name,
+          code,
+          is_default AS "isDefault",
+          is_active AS "isActive",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM inventory_locations
+        WHERE business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+          AND is_active = true
+          AND id <> CAST(${excludedLocationId} AS uuid)
+        ORDER BY name ASC, id ASC
+        LIMIT 1
+      `,
+    );
+
+    return rows[0] ?? null;
+  }
+
+  async getLocationBalanceSummary(
+    businessId: string,
+    branchId: string,
+    locationId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const rows = await executor.$queryRaw<
+      Array<{
+        totalQuantity: number;
+        reservedQuantity: number;
+        availableQuantity: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        COALESCE(SUM(quantity), 0)::double precision AS "totalQuantity",
+        COALESCE(SUM(reserved_quantity), 0)::double precision AS "reservedQuantity",
+        COALESCE(SUM(quantity - reserved_quantity), 0)::double precision AS "availableQuantity"
+      FROM stock_balances
+      WHERE business_id = CAST(${businessId} AS uuid)
+        AND branch_id = CAST(${branchId} AS uuid)
+        AND location_id = CAST(${locationId} AS uuid)
+    `);
+
+    return (
+      rows[0] ?? {
+        totalQuantity: 0,
+        reservedQuantity: 0,
+        availableQuantity: 0,
+      }
+    );
+  }
+
+  async listProductStockByLocation(
+    businessId: string,
+    branchId: string,
+    productId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+
+    return executor.$queryRaw<ProductStockLocationRecord[]>(Prisma.sql`
+      SELECT
+        il.id AS "locationId",
+        il.name AS "locationName",
+        il.code AS "locationCode",
+        il.is_default AS "isDefault",
+        il.is_active AS "isActive",
+        COALESCE(sb.quantity, 0)::double precision AS quantity,
+        COALESCE(sb.reserved_quantity, 0)::double precision AS "reservedQuantity",
+        COALESCE(sb.quantity - sb.reserved_quantity, 0)::double precision AS "availableQuantity"
+      FROM inventory_locations il
+      LEFT JOIN stock_balances sb
+        ON sb.location_id = il.id
+        AND sb.business_id = CAST(${businessId} AS uuid)
+        AND sb.branch_id = CAST(${branchId} AS uuid)
+        AND sb.product_id = CAST(${productId} AS uuid)
+      WHERE il.business_id = CAST(${businessId} AS uuid)
+        AND il.branch_id = CAST(${branchId} AS uuid)
+      ORDER BY il.is_default DESC, il.is_active DESC, il.name ASC
+    `);
+  }
+
   async createCategory(
     input: {
       businessId: string;
@@ -1017,7 +1385,9 @@ export class InventoryRepository {
       Prisma.sql`
         SELECT
           product_id AS "productId",
-          quantity::double precision AS quantity
+          location_id AS "locationId",
+          quantity::double precision AS quantity,
+          reserved_quantity::double precision AS "reservedQuantity"
         FROM stock_balances
         WHERE business_id = CAST(${businessId} AS uuid)
           AND branch_id = CAST(${branchId} AS uuid)
@@ -1151,18 +1521,24 @@ export class InventoryRepository {
       Prisma.sql`
         SELECT
           im.id,
+          im.product_id AS "productId",
+          pr.name AS "productName",
+          pr.sku,
           im.movement_type AS "movementType",
           im.quantity::double precision AS quantity,
           COALESCE(im.unit_cost, 0)::double precision AS "unitCost",
           im.notes,
           im.reference_type AS "referenceType",
+          im.reference_id::text AS "referenceId",
           im.location_id AS "locationId",
           il.name AS "locationName",
+          il.code AS "locationCode",
           im.created_by AS "createdBy",
           p.full_name AS "createdByName",
           im.created_at AS "createdAt"
         FROM inventory_movements im
         INNER JOIN inventory_locations il ON il.id = im.location_id
+        INNER JOIN products pr ON pr.id = im.product_id
         LEFT JOIN profiles p ON p.id = im.created_by
         WHERE im.business_id = CAST(${businessId} AS uuid)
           AND im.branch_id = CAST(${branchId} AS uuid)
@@ -1171,6 +1547,333 @@ export class InventoryRepository {
         LIMIT CAST(${limit} AS integer)
       `,
     );
+  }
+
+  async listInventoryMovements(
+    businessId: string,
+    branchId: string,
+    options: {
+      productId?: string;
+      locationId?: string;
+      movementType?: string;
+      limit?: number;
+    },
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const limit = Math.min(Math.max(options.limit ?? 40, 1), 100);
+
+    return executor.$queryRaw<InventoryMovementRecord[]>(Prisma.sql`
+      SELECT
+        im.id,
+        im.product_id AS "productId",
+        pr.name AS "productName",
+        pr.sku,
+        im.movement_type AS "movementType",
+        im.quantity::double precision AS quantity,
+        COALESCE(im.unit_cost, 0)::double precision AS "unitCost",
+        im.notes,
+        im.reference_type AS "referenceType",
+        im.reference_id::text AS "referenceId",
+        im.location_id AS "locationId",
+        il.name AS "locationName",
+        il.code AS "locationCode",
+        im.created_by AS "createdBy",
+        p.full_name AS "createdByName",
+        im.created_at AS "createdAt"
+      FROM inventory_movements im
+      INNER JOIN inventory_locations il ON il.id = im.location_id
+      INNER JOIN products pr ON pr.id = im.product_id
+      LEFT JOIN profiles p ON p.id = im.created_by
+      WHERE im.business_id = CAST(${businessId} AS uuid)
+        AND im.branch_id = CAST(${branchId} AS uuid)
+        ${
+          options.productId
+            ? Prisma.sql`AND im.product_id = CAST(${options.productId} AS uuid)`
+            : Prisma.empty
+        }
+        ${
+          options.locationId
+            ? Prisma.sql`AND im.location_id = CAST(${options.locationId} AS uuid)`
+            : Prisma.empty
+        }
+        ${
+          options.movementType
+            ? Prisma.sql`AND im.movement_type = CAST(${options.movementType} AS inventory_movement_type)`
+            : Prisma.empty
+        }
+      ORDER BY im.created_at DESC
+      LIMIT CAST(${limit} AS integer)
+    `);
+  }
+
+  async listLowStockCandidates(
+    businessId: string,
+    branchId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+
+    return executor.$queryRaw<
+      Array<{
+        productId: string;
+        productName: string;
+        sku: string | null;
+        minStock: number;
+        availableStock: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        p.id AS "productId",
+        p.name AS "productName",
+        p.sku,
+        p.min_stock::double precision AS "minStock",
+        COALESCE(stock.available_stock, 0)::double precision AS "availableStock"
+      FROM products p
+      LEFT JOIN (
+        SELECT
+          product_id,
+          SUM(quantity - reserved_quantity)::double precision AS available_stock
+        FROM stock_balances
+        WHERE business_id = CAST(${businessId} AS uuid)
+          AND branch_id = CAST(${branchId} AS uuid)
+        GROUP BY product_id
+      ) stock ON stock.product_id = p.id
+      WHERE p.business_id = CAST(${businessId} AS uuid)
+        AND p.is_active = true
+        AND COALESCE(p.track_inventory, false) = true
+        AND COALESCE(p.min_stock, 0) > 0
+      ORDER BY p.name ASC
+    `);
+  }
+
+  async listLatestLowStockAlertsByProductIds(
+    businessId: string,
+    branchId: string,
+    productIds: string[],
+    tx?: PrismaExecutor,
+  ) {
+    if (productIds.length === 0) {
+      return [];
+    }
+
+    const executor = tx ?? this.prisma;
+    const productIdList = productIds.map(
+      (productId) => Prisma.sql`CAST(${productId} AS uuid)`,
+    );
+
+    return executor.$queryRaw<InventoryAlertRecord[]>(Prisma.sql`
+      SELECT DISTINCT ON (a.product_id)
+        a.id,
+        a.business_id AS "businessId",
+        a.branch_id AS "branchId",
+        a.product_id AS "productId",
+        a.alert_type AS "alertType",
+        a.title,
+        a.message,
+        a.status,
+        a.metadata,
+        a.created_at AS "createdAt",
+        a.updated_at AS "updatedAt"
+      FROM alerts a
+      WHERE a.business_id = CAST(${businessId} AS uuid)
+        AND a.branch_id = CAST(${branchId} AS uuid)
+        AND a.alert_type = 'low_stock'
+        AND a.product_id IN (${Prisma.join(productIdList)})
+      ORDER BY a.product_id, a.updated_at DESC, a.created_at DESC
+    `);
+  }
+
+  async listLatestLowStockAlerts(
+    businessId: string,
+    branchId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+
+    return executor.$queryRaw<InventoryAlertRecord[]>(Prisma.sql`
+      SELECT DISTINCT ON (a.product_id)
+        a.id,
+        a.business_id AS "businessId",
+        a.branch_id AS "branchId",
+        a.product_id AS "productId",
+        a.alert_type AS "alertType",
+        a.title,
+        a.message,
+        a.status,
+        a.metadata,
+        a.created_at AS "createdAt",
+        a.updated_at AS "updatedAt"
+      FROM alerts a
+      WHERE a.business_id = CAST(${businessId} AS uuid)
+        AND a.branch_id = CAST(${branchId} AS uuid)
+        AND a.alert_type = 'low_stock'
+      ORDER BY a.product_id, a.updated_at DESC, a.created_at DESC
+    `);
+  }
+
+  async createInventoryAlert(
+    input: {
+      businessId: string;
+      branchId: string;
+      productId?: string | null;
+      alertType: string;
+      title: string;
+      message: string;
+      status: string;
+      metadata: unknown;
+    },
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<InventoryAlertRecord[]>(Prisma.sql`
+      INSERT INTO alerts (
+        business_id,
+        branch_id,
+        product_id,
+        alert_type,
+        title,
+        message,
+        status,
+        metadata,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        CAST(${input.businessId} AS uuid),
+        CAST(${input.branchId} AS uuid),
+        CAST(${input.productId ?? null} AS uuid),
+        ${input.alertType},
+        ${input.title},
+        ${input.message},
+        CAST(${input.status} AS stock_alert_status),
+        CAST(${JSON.stringify(input.metadata)} AS jsonb),
+        NOW(),
+        NOW()
+      )
+      RETURNING
+        id,
+        business_id AS "businessId",
+        branch_id AS "branchId",
+        product_id AS "productId",
+        alert_type AS "alertType",
+        title,
+        message,
+        status,
+        metadata,
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `);
+
+    return rows[0]!;
+  }
+
+  async updateInventoryAlert(
+    input: {
+      alertId: string;
+      businessId: string;
+      branchId: string;
+      title?: string;
+      message?: string;
+      status?: string;
+      metadata?: unknown;
+    },
+    tx: PrismaExecutor,
+  ) {
+    const rows = await tx.$queryRaw<InventoryAlertRecord[]>(Prisma.sql`
+      UPDATE alerts
+      SET
+        title = COALESCE(${input.title ?? null}, title),
+        message = COALESCE(${input.message ?? null}, message),
+        status = COALESCE(CAST(${input.status ?? null} AS stock_alert_status), status),
+        metadata = COALESCE(CAST(${input.metadata ? JSON.stringify(input.metadata) : null} AS jsonb), metadata),
+        updated_at = NOW()
+      WHERE id = CAST(${input.alertId} AS uuid)
+        AND business_id = CAST(${input.businessId} AS uuid)
+        AND branch_id = CAST(${input.branchId} AS uuid)
+      RETURNING
+        id,
+        business_id AS "businessId",
+        branch_id AS "branchId",
+        product_id AS "productId",
+        alert_type AS "alertType",
+        title,
+        message,
+        status,
+        metadata,
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `);
+
+    return rows[0] ?? null;
+  }
+
+  async getInventoryAlertById(
+    businessId: string,
+    branchId: string,
+    alertId: string,
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const rows = await executor.$queryRaw<InventoryAlertRecord[]>(Prisma.sql`
+      SELECT
+        a.id,
+        a.business_id AS "businessId",
+        a.branch_id AS "branchId",
+        a.product_id AS "productId",
+        a.alert_type AS "alertType",
+        a.title,
+        a.message,
+        a.status,
+        a.metadata,
+        a.created_at AS "createdAt",
+        a.updated_at AS "updatedAt"
+      FROM alerts a
+      WHERE a.business_id = CAST(${businessId} AS uuid)
+        AND a.branch_id = CAST(${branchId} AS uuid)
+        AND a.id = CAST(${alertId} AS uuid)
+      LIMIT 1
+    `);
+
+    return rows[0] ?? null;
+  }
+
+  async listInventoryAlerts(
+    businessId: string,
+    branchId: string,
+    options?: { status?: string; limit?: number },
+    tx?: PrismaExecutor,
+  ) {
+    const executor = tx ?? this.prisma;
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+
+    return executor.$queryRaw<InventoryAlertRecord[]>(Prisma.sql`
+      SELECT
+        a.id,
+        a.business_id AS "businessId",
+        a.branch_id AS "branchId",
+        a.product_id AS "productId",
+        a.alert_type AS "alertType",
+        a.title,
+        a.message,
+        a.status,
+        a.metadata,
+        a.created_at AS "createdAt",
+        a.updated_at AS "updatedAt",
+        p.name AS "productName",
+        p.sku AS "productSku",
+        p.min_stock::double precision AS "minStock"
+      FROM alerts a
+      LEFT JOIN products p ON p.id = a.product_id
+      WHERE a.business_id = CAST(${businessId} AS uuid)
+        AND a.branch_id = CAST(${branchId} AS uuid)
+        ${
+          options?.status
+            ? Prisma.sql`AND a.status = CAST(${options.status} AS stock_alert_status)`
+            : Prisma.empty
+        }
+      ORDER BY a.updated_at DESC, a.created_at DESC
+      LIMIT CAST(${limit} AS integer)
+    `);
   }
 
   async createGoodsReceipt(
