@@ -10,6 +10,8 @@ import { OpenCashForm } from "@/components/cash/open-cash-form";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { NoticeBanner } from "@/components/shared/notice-banner";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -27,6 +29,7 @@ import {
 import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
+import { getFriendlyErrorMessage } from "@/lib/api/errors";
 
 export default function CashPage() {
   const hydrated = useHydratedStore();
@@ -37,7 +40,9 @@ export default function CashPage() {
     business_id,
     branch_id,
   );
-  const summaryQuery = useCashSessionSummaryQuery(openSessionQuery.data?.id ?? null);
+  const summaryQuery = useCashSessionSummaryQuery(
+    openSessionQuery.data?.id ?? null,
+  );
   const openMutation = useOpenCashSessionMutation(
     register_id,
     business_id,
@@ -55,6 +60,13 @@ export default function CashPage() {
     branch_id,
     openSessionQuery.data?.id ?? null,
   );
+  const refreshCashData = () => {
+    void openSessionQuery.refetch();
+
+    if (openSessionQuery.data?.id) {
+      void summaryQuery.refetch();
+    }
+  };
 
   if (!hydrated) {
     return <LoadingState message="Inicializando caja..." />;
@@ -70,10 +82,17 @@ export default function CashPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Contexto de caja</CardTitle>
-          <CardDescription>
-            Operacion diaria sobre la seleccion actual.
-          </CardDescription>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Contexto de caja</CardTitle>
+              <CardDescription>
+                Operacion diaria sobre la seleccion actual.
+              </CardDescription>
+            </div>
+            <Button type="button" variant="outline" onClick={refreshCashData}>
+              Actualizar
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <ContextMetric
@@ -95,14 +114,21 @@ export default function CashPage() {
         </CardContent>
       </Card>
 
-      {openSessionQuery.isLoading ? (
+      {openSessionQuery.isLoading && !openSessionQuery.data ? (
         <LoadingState message="Consultando sesion abierta..." />
       ) : null}
-      {openSessionQuery.error instanceof Error ? (
+      {openSessionQuery.error instanceof Error && !openSessionQuery.data ? (
         <ErrorState
-          message={openSessionQuery.error.message}
+          message="Hubo un problema al cargar los datos de caja."
           actionLabel="Reintentar"
           onAction={() => void openSessionQuery.refetch()}
+        />
+      ) : null}
+      {openSessionQuery.error instanceof Error && openSessionQuery.data ? (
+        <NoticeBanner
+          message="No se pudo actualizar la informacion en este momento."
+          actionLabel="Intenta nuevamente"
+          onAction={refreshCashData}
         />
       ) : null}
 
@@ -126,9 +152,10 @@ export default function CashPage() {
                 toast.success("Caja abierta correctamente.");
               } catch (error) {
                 toast.error(
-                  error instanceof Error
-                    ? error.message
-                    : "No fue posible abrir la caja.",
+                  getFriendlyErrorMessage(
+                    error,
+                    "No se pudo abrir la caja en este momento.",
+                  ),
                 );
               }
             }}
@@ -143,17 +170,25 @@ export default function CashPage() {
               session={openSessionQuery.data}
               openedByLabel={contextQuery.data?.user.full_name}
               registerLabel={
-                contextQuery.data?.register?.name ?? contextQuery.data?.register?.code
+                contextQuery.data?.register?.name ??
+                contextQuery.data?.register?.code
               }
             />
 
-            {summaryQuery.isLoading ? (
+            {summaryQuery.isLoading && !summaryQuery.data ? (
               <LoadingState message="Calculando resumen de sesion..." />
             ) : null}
-            {summaryQuery.error instanceof Error ? (
+            {summaryQuery.error instanceof Error && !summaryQuery.data ? (
               <ErrorState
-                message={summaryQuery.error.message}
+                message="No se pudo cargar el resumen de la sesion."
                 actionLabel="Reintentar"
+                onAction={() => void summaryQuery.refetch()}
+              />
+            ) : null}
+            {summaryQuery.error instanceof Error && summaryQuery.data ? (
+              <NoticeBanner
+                message="No se pudo actualizar la informacion en este momento."
+                actionLabel="Intenta nuevamente"
                 onAction={() => void summaryQuery.refetch()}
               />
             ) : null}
@@ -173,10 +208,10 @@ export default function CashPage() {
                   await movementMutation.mutateAsync(payload);
                   toast.success("Movimiento registrado.");
                 } catch (error) {
-                  const message =
-                    error instanceof Error
-                      ? error.message
-                      : "No fue posible registrar el movimiento.";
+                  const message = getFriendlyErrorMessage(
+                    error,
+                    "No se pudo registrar el movimiento.",
+                  );
                   toast.error(message);
                   throw new Error(message);
                 }
@@ -197,9 +232,10 @@ export default function CashPage() {
                     );
                   } catch (error) {
                     toast.error(
-                      error instanceof Error
-                        ? error.message
-                        : "No fue posible cerrar la caja.",
+                      getFriendlyErrorMessage(
+                        error,
+                        "No se pudo cerrar la caja.",
+                      ),
                     );
                   }
                 }}
@@ -212,13 +248,7 @@ export default function CashPage() {
   );
 }
 
-function ContextMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function ContextMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border bg-white/60 p-4">
       <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">

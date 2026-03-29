@@ -17,6 +17,7 @@ import { useOperatingContext } from "@/features/context/hooks";
 import { useCreateSaleMutation } from "@/features/sales/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
+import { getFriendlyErrorMessage } from "@/lib/api/errors";
 import { formatCurrency } from "@/lib/utils";
 import { useCartStore } from "@/stores/cart-store";
 
@@ -70,7 +71,7 @@ export default function PosPage() {
   if (openSessionQuery.error instanceof Error) {
     return (
       <ErrorState
-        message={openSessionQuery.error.message}
+        message="Hubo un problema al cargar la sesion de caja."
         actionLabel="Reintentar"
         onAction={() => void openSessionQuery.refetch()}
       />
@@ -80,9 +81,7 @@ export default function PosPage() {
   const openSession = openSessionQuery.data;
 
   if (!openSession) {
-    return (
-      <ErrorState message="Debes abrir caja antes de vender." />
-    );
+    return <ErrorState message="Debes abrir caja antes de vender." />;
   }
 
   return (
@@ -143,7 +142,9 @@ export default function PosPage() {
         <PosCart
           items={items}
           onQuantityChange={(productId, quantity) => {
-            const currentItem = items.find((item) => item.product_id === productId);
+            const currentItem = items.find(
+              (item) => item.product_id === productId,
+            );
 
             if (!currentItem) {
               return;
@@ -237,10 +238,10 @@ export default function PosPage() {
               clearCart();
               toast.success("Venta registrada correctamente.");
             } catch (error) {
-              const message =
-                error instanceof Error
-                  ? error.message
-                  : "No fue posible registrar la venta.";
+              const message = getFriendlyErrorMessage(
+                error,
+                "No se pudo registrar la venta.",
+              );
               setSaleError(message);
               toast.error(message);
             }

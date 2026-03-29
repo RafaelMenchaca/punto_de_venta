@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useProductSearch } from "@/features/products/hooks";
 import type { ProductSearchResult } from "@/features/products/types";
+import { getFriendlyErrorMessage } from "@/lib/api/errors";
 import { formatCurrency } from "@/lib/utils";
 
 export function ProductSearch({
@@ -60,12 +61,16 @@ export function ProductSearch({
         ) : null}
         {query.error instanceof Error ? (
           <ErrorState
-            message={query.error.message}
+            message={getFriendlyErrorMessage(
+              query.error,
+              "Hubo un problema al cargar los productos.",
+            )}
             actionLabel="Reintentar"
             onAction={() => void query.refetch()}
           />
         ) : null}
-        {term.trim().length >= minimumQueryLength && query.data?.length === 0 ? (
+        {term.trim().length >= minimumQueryLength &&
+        query.data?.length === 0 ? (
           <EmptyState
             title="Sin resultados"
             description={

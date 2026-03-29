@@ -43,7 +43,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Unexpected server error',
+      message: 'No se pudo completar la solicitud en este momento.',
       path: request.url,
       timestamp: new Date().toISOString(),
     });

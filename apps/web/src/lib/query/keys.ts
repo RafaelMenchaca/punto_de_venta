@@ -25,6 +25,40 @@ export const queryKeys = {
     branchId: string | null,
     term: string,
   ) => ["inventory", "products", businessId, branchId, term] as const,
+  inventoryProductsList: (
+    businessId: string | null,
+    branchId: string | null,
+    term: string,
+    includeInactive: boolean,
+  ) =>
+    [
+      "inventory",
+      "products-list",
+      businessId,
+      branchId,
+      term,
+      includeInactive,
+    ] as const,
+  inventoryProductDetail: (
+    productId: string | null,
+    businessId: string | null,
+    branchId: string | null,
+  ) =>
+    ["inventory", "product-detail", productId, businessId, branchId] as const,
+  inventoryProductMovements: (
+    productId: string | null,
+    businessId: string | null,
+    branchId: string | null,
+  ) =>
+    [
+      "inventory",
+      "product-movements",
+      productId,
+      businessId,
+      branchId,
+    ] as const,
+  inventoryCatalogs: (businessId: string | null, branchId: string | null) =>
+    ["inventory", "catalogs", businessId, branchId] as const,
   productStock: (
     productId: string | null,
     businessId: string | null,

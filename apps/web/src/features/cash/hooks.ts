@@ -23,6 +23,8 @@ export function useOpenCashSessionQuery(
         branch_id: branchId!,
       }),
     enabled: Boolean(registerId && businessId && branchId),
+    retry: 1,
+    staleTime: 30_000,
   });
 }
 
@@ -31,6 +33,8 @@ export function useCashSessionSummaryQuery(cashSessionId: string | null) {
     queryKey: queryKeys.cashSessionSummary(cashSessionId),
     queryFn: () => getCashSessionSummary(cashSessionId!),
     enabled: Boolean(cashSessionId),
+    retry: 1,
+    staleTime: 30_000,
   });
 }
 
@@ -66,8 +70,11 @@ export function useCreateCashMovementMutation(
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { movement_type: "income" | "expense"; amount: number; notes?: string }) =>
-      createCashMovement(cashSessionId!, payload),
+    mutationFn: (payload: {
+      movement_type: "income" | "expense";
+      amount: number;
+      notes?: string;
+    }) => createCashMovement(cashSessionId!, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.cashSessionSummary(cashSessionId),

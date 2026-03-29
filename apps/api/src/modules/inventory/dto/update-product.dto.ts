@@ -11,7 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 
-export class CreateProductDto {
+export class UpdateProductDto {
   @IsUUID()
   business_id!: string;
 
@@ -71,13 +71,4 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   primary_image_url?: string;
-
-  @IsOptional()
-  @IsUUID()
-  location_id?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  initial_stock?: number;
 }
