@@ -1,4 +1,10 @@
-import { CreditCard, LayoutDashboard, Package2, Wallet } from "lucide-react";
+import {
+  CreditCard,
+  LayoutDashboard,
+  Package2,
+  ShoppingCart,
+  Wallet,
+} from "lucide-react";
 
 export const navigationItems = [
   {
@@ -15,6 +21,11 @@ export const navigationItems = [
     href: "/inventory",
     label: "Inventario",
     icon: Package2,
+  },
+  {
+    href: "/purchasing",
+    label: "Compras",
+    icon: ShoppingCart,
   },
   {
     href: "/cash",

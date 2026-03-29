@@ -42,6 +42,46 @@ export const queryKeys = {
     businessId: string | null,
     branchId: string | null,
   ) => ["sales", "refunds", saleId, businessId, branchId] as const,
+  purchasingSuppliers: (businessId: string | null, term: string) =>
+    ["purchasing", "suppliers", businessId, term] as const,
+  purchasingSupplierDetail: (
+    supplierId: string | null,
+    businessId: string | null,
+  ) => ["purchasing", "supplier-detail", supplierId, businessId] as const,
+  purchaseOrders: (
+    businessId: string | null,
+    branchId: string | null,
+    term: string,
+  ) => ["purchasing", "orders", businessId, branchId, term] as const,
+  purchaseOrderDetail: (
+    purchaseOrderId: string | null,
+    businessId: string | null,
+    branchId: string | null,
+  ) =>
+    [
+      "purchasing",
+      "order-detail",
+      purchaseOrderId,
+      businessId,
+      branchId,
+    ] as const,
+  goodsReceipts: (
+    businessId: string | null,
+    branchId: string | null,
+    term: string,
+  ) => ["purchasing", "receipts", businessId, branchId, term] as const,
+  goodsReceiptDetail: (
+    goodsReceiptId: string | null,
+    businessId: string | null,
+    branchId: string | null,
+  ) =>
+    [
+      "purchasing",
+      "receipt-detail",
+      goodsReceiptId,
+      businessId,
+      branchId,
+    ] as const,
   inventoryProductsList: (
     businessId: string | null,
     branchId: string | null,

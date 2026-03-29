@@ -12,11 +12,17 @@ export class ApiError extends Error {
 
 const TECHNICAL_MESSAGE_PATTERN =
   /(api|fetch|network|axios|timeout|server|backend|unexpected|abort|failed|stack|trace|ECONN|ENOTFOUND|TypeError)/i;
+const VALIDATION_INTERNAL_PATTERN =
+  /^(property\s+.+\s+should not exist|an instance of .+ has failed the validation)/i;
 
 const sanitizeMessage = (message?: string | null) => {
   const normalized = message?.trim();
 
   if (!normalized) {
+    return null;
+  }
+
+  if (VALIDATION_INTERNAL_PATTERN.test(normalized)) {
     return null;
   }
 

@@ -1,0 +1,35 @@
+import { Transform } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+
+export class ListPurchaseOrdersDto {
+  @IsUUID()
+  business_id!: string;
+
+  @IsUUID()
+  branch_id!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  query?: string;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  })
+  @Min(5)
+  @Max(50)
+  limit?: number;
+}
