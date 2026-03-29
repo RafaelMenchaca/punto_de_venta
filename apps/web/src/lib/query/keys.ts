@@ -106,6 +106,7 @@ export const queryKeys = {
     productId: string | null,
     businessId: string | null,
     branchId: string | null,
+    limit = 20,
   ) =>
     [
       "inventory",
@@ -113,7 +114,43 @@ export const queryKeys = {
       productId,
       businessId,
       branchId,
+      limit,
     ] as const,
+  inventoryLocations: (
+    businessId: string | null,
+    branchId: string | null,
+    includeInactive: boolean,
+  ) =>
+    [
+      "inventory",
+      "locations",
+      businessId,
+      branchId,
+      includeInactive,
+    ] as const,
+  inventoryMovements: (
+    businessId: string | null,
+    branchId: string | null,
+    productId: string | null,
+    locationId: string | null,
+    movementType: string | null,
+    limit: number,
+  ) =>
+    [
+      "inventory",
+      "movements",
+      businessId,
+      branchId,
+      productId,
+      locationId,
+      movementType,
+      limit,
+    ] as const,
+  inventoryAlerts: (
+    businessId: string | null,
+    branchId: string | null,
+    status: string,
+  ) => ["inventory", "alerts", businessId, branchId, status] as const,
   inventoryCatalogs: (businessId: string | null, branchId: string | null) =>
     ["inventory", "catalogs", businessId, branchId] as const,
   productStock: (

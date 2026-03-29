@@ -50,6 +50,20 @@ export const apiEndpoints = {
     `/inventory/products/${productId}/stock`,
   inventoryProductMovements: (productId: string) =>
     `/inventory/products/${productId}/movements`,
+  inventoryLocations: "/inventory/locations",
+  inventoryLocationDetail: (locationId: string) =>
+    `/inventory/locations/${locationId}`,
+  inventoryLocationDeactivate: (locationId: string) =>
+    `/inventory/locations/${locationId}/deactivate`,
+  inventoryLocationReactivate: (locationId: string) =>
+    `/inventory/locations/${locationId}/reactivate`,
+  inventoryTransfers: "/inventory/transfers",
+  inventoryMovements: "/inventory/movements",
+  inventoryAlerts: "/inventory/alerts",
+  inventoryAlertResolve: (alertId: string) =>
+    `/inventory/alerts/${alertId}/resolve`,
+  inventoryAlertDismiss: (alertId: string) =>
+    `/inventory/alerts/${alertId}/dismiss`,
   inventoryDefaultLocation: "/inventory/locations/default",
   inventoryStockAdjustments: "/inventory/stock-adjustments",
   inventoryCatalogs: "/inventory/catalogs",
