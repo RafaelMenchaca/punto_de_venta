@@ -24,6 +24,11 @@ export class CreateSaleItemDto {
   @IsNumber()
   @Min(0)
   unit_price?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  line_discount?: number;
 }
 
 export class CreateSalePaymentDto {
@@ -59,6 +64,11 @@ export class CreateSaleDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sale_discount?: number;
 
   @IsArray()
   @ArrayMinSize(1)

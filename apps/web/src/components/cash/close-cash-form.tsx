@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,8 +31,33 @@ export function CloseCashForm({
 }) {
   const [closingCounted, setClosingCounted] = useState(String(expectedCash));
   const [notes, setNotes] = useState("");
+  const previousExpectedRef = useRef(expectedCash);
 
-  const numericAmount = Number(closingCounted);
+  useEffect(() => {
+    setClosingCounted((currentValue) => {
+      const previousExpected = previousExpectedRef.current;
+      previousExpectedRef.current = expectedCash;
+
+      if (!currentValue.trim()) {
+        return String(expectedCash);
+      }
+
+      const parsedValue = Number(currentValue);
+
+      if (
+        Number.isNaN(parsedValue) ||
+        Math.abs(parsedValue - previousExpected) < 0.009
+      ) {
+        return String(expectedCash);
+      }
+
+      return currentValue;
+    });
+  }, [expectedCash]);
+
+  const numericAmount = closingCounted.trim()
+    ? Number(closingCounted)
+    : Number.NaN;
   const isInvalidAmount = useMemo(
     () => Number.isNaN(numericAmount) || numericAmount < 0,
     [numericAmount],
@@ -52,6 +77,7 @@ export function CloseCashForm({
         <CardTitle>Cerrar caja</CardTitle>
         <CardDescription>
           Captura el efectivo contado y revisa la diferencia antes de cerrar.
+          No tiene que coincidir exactamente para permitir el cierre.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -86,6 +112,10 @@ export function CloseCashForm({
             }`}
           >
             {formatCurrency(difference)}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Puedes cerrar con sobrante o faltante y dejar la nota
+            correspondiente.
           </p>
         </div>
 

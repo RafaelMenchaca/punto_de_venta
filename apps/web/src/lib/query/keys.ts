@@ -25,6 +25,23 @@ export const queryKeys = {
     branchId: string | null,
     term: string,
   ) => ["inventory", "products", businessId, branchId, term] as const,
+  customers: (businessId: string | null, term: string, limit: number) =>
+    ["customers", businessId, term, limit] as const,
+  salesList: (
+    businessId: string | null,
+    branchId: string | null,
+    query: string,
+  ) => ["sales", "list", businessId, branchId, query] as const,
+  saleDetail: (
+    saleId: string | null,
+    businessId: string | null,
+    branchId: string | null,
+  ) => ["sales", "detail", saleId, businessId, branchId] as const,
+  saleRefunds: (
+    saleId: string | null,
+    businessId: string | null,
+    branchId: string | null,
+  ) => ["sales", "refunds", saleId, businessId, branchId] as const,
   inventoryProductsList: (
     businessId: string | null,
     branchId: string | null,

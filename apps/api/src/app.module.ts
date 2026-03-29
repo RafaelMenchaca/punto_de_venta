@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { CashModule } from './modules/cash/cash.module';
 import { ContextModule } from './modules/context/context.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
@@ -23,6 +24,7 @@ import { SharedDbModule } from './modules/shared-db/shared-db.module';
     SharedDbModule,
     AuditModule,
     ContextModule,
+    CustomersModule,
     HealthModule,
     CashModule,
     SalesModule,
