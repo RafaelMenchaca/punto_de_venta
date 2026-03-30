@@ -36,6 +36,7 @@ import { calculateCartTotals } from "@/features/sales/utils";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
 import { getFriendlyErrorMessage } from "@/lib/api/errors";
+import { canAccessPos } from "@/lib/authz";
 import { formatCurrency } from "@/lib/utils";
 import { useCartStore } from "@/stores/cart-store";
 
@@ -80,6 +81,7 @@ export default function PosPage() {
     business_id,
     branch_id,
   );
+  const role = contextQuery.data?.user.role ?? null;
 
   const [activeTab, setActiveTab] = useState<PosTab>("sale");
   const [saleError, setSaleError] = useState<string | null>(null);
@@ -116,7 +118,9 @@ export default function PosPage() {
   const removeItem = useCartStore((state) => state.removeItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const updateLineDiscount = useCartStore((state) => state.updateLineDiscount);
-  const setSelectedCustomer = useCartStore((state) => state.setSelectedCustomer);
+  const setSelectedCustomer = useCartStore(
+    (state) => state.setSelectedCustomer,
+  );
   const setSaleDiscount = useCartStore((state) => state.setSaleDiscount);
   const addPaymentLine = useCartStore((state) => state.addPaymentLine);
   const removePaymentLine = useCartStore((state) => state.removePaymentLine);
@@ -129,20 +133,21 @@ export default function PosPage() {
   const updatePaymentLineReference = useCartStore(
     (state) => state.updatePaymentLineReference,
   );
-  const replacePaymentLines = useCartStore((state) => state.replacePaymentLines);
+  const replacePaymentLines = useCartStore(
+    (state) => state.replacePaymentLines,
+  );
   const setNotes = useCartStore((state) => state.setNotes);
 
   const totals = calculateCartTotals(items, saleDiscount, paymentLines);
-  const paymentHelperMessage =
-    totals.hasUnsupportedChange
-      ? "Solo el efectivo puede exceder el total para calcular cambio."
-      : totals.remaining > 0.009
-        ? `Faltan ${formatCurrency(totals.remaining)} para completar el cobro.`
-        : totals.change > 0
-          ? `Cambio estimado: ${formatCurrency(totals.change)}.`
-          : totals.total > 0
-            ? "Cobro listo para finalizar."
-            : "Agrega productos para preparar el cobro.";
+  const paymentHelperMessage = totals.hasUnsupportedChange
+    ? "Solo el efectivo puede exceder el total para calcular cambio."
+    : totals.remaining > 0.009
+      ? `Faltan ${formatCurrency(totals.remaining)} para completar el cobro.`
+      : totals.change > 0
+        ? `Cambio estimado: ${formatCurrency(totals.change)}.`
+        : totals.total > 0
+          ? "Cobro listo para finalizar."
+          : "Agrega productos para preparar el cobro.";
 
   useEffect(() => {
     if (
@@ -185,18 +190,24 @@ export default function PosPage() {
     );
   }
 
+  if (contextQuery.data && !canAccessPos(role)) {
+    return (
+      <ErrorState message="No tienes permiso para operar ventas con el rol actual." />
+    );
+  }
+
   const openSession = openSessionQuery.data ?? null;
   const saleTabDisabledMessage =
     openSessionQuery.isLoading && !openSession
       ? null
       : openSessionQuery.error instanceof Error
-      ? getFriendlyErrorMessage(
-          openSessionQuery.error,
-          "No se pudo cargar la sesion de caja en este momento.",
-        )
-      : !openSession
-        ? "Debes abrir caja antes de vender."
-        : null;
+        ? getFriendlyErrorMessage(
+            openSessionQuery.error,
+            "No se pudo cargar la sesion de caja en este momento.",
+          )
+        : !openSession
+          ? "Debes abrir caja antes de vender."
+          : null;
 
   const posTabs: Array<{ id: PosTab; label: string }> = [
     { id: "sale", label: "Venta" },
@@ -213,7 +224,9 @@ export default function PosPage() {
         <CardContent className="grid gap-4 text-sm md:grid-cols-4">
           <MetricCard
             label="Cajero"
-            value={contextQuery.data?.user.full_name ?? "Resolviendo usuario..."}
+            value={
+              contextQuery.data?.user.full_name ?? "Resolviendo usuario..."
+            }
           />
           <MetricCard
             label="Caja"
@@ -493,13 +506,13 @@ export default function PosPage() {
               <Button
                 type="button"
                 variant="outline"
-                  disabled={!historyDetailQuery.data?.sale.canRefund}
-                  onClick={() => {
-                    if (historyDetailQuery.data) {
-                      handleSelectRefundSale(historyDetailQuery.data.sale.id);
-                      setActiveTab("refunds");
-                    }
-                  }}
+                disabled={!historyDetailQuery.data?.sale.canRefund}
+                onClick={() => {
+                  if (historyDetailQuery.data) {
+                    handleSelectRefundSale(historyDetailQuery.data.sale.id);
+                    setActiveTab("refunds");
+                  }
+                }}
               >
                 Preparar devolucion
               </Button>
@@ -541,7 +554,9 @@ export default function PosPage() {
                     });
                 }}
               >
-                {cancelSaleMutation.isPending ? "Cancelando..." : "Cancelar venta"}
+                {cancelSaleMutation.isPending
+                  ? "Cancelando..."
+                  : "Cancelar venta"}
               </Button>
             </div>
 

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { SALES_OPERATION_ROLES } from '../../common/authz/role-groups';
 import { InventoryMovementType } from '../../common/enums/inventory-movement-type.enum';
 import { PaymentMethod } from '../../common/enums/payment-method.enum';
 import { PaymentStatus } from '../../common/enums/payment-status.enum';
@@ -62,6 +63,13 @@ export class SalesService {
       user.id,
       sale.businessId,
       sale.branchId,
+    );
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      sale.businessId,
+      SALES_OPERATION_ROLES,
+      sale.branchId,
+      'No tienes permiso para operar ventas.',
     );
   }
 
@@ -269,6 +277,13 @@ export class SalesService {
       query.business_id,
       query.branch_id,
     );
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      query.business_id,
+      SALES_OPERATION_ROLES,
+      query.branch_id,
+      'No tienes permiso para operar ventas.',
+    );
 
     const sales = await this.salesRepository.listSales(
       query.business_id,
@@ -336,6 +351,13 @@ export class SalesService {
       user.id,
       input.business_id,
       input.branch_id,
+    );
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      input.business_id,
+      SALES_OPERATION_ROLES,
+      input.branch_id,
+      'No tienes permiso para operar ventas.',
     );
     await this.registerValidationService.assertRegisterBelongsToBranch(
       input.register_id,

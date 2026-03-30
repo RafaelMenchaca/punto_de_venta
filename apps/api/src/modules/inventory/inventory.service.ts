@@ -5,6 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import {
+  INVENTORY_MUTATION_ROLES,
+  INVENTORY_READ_ROLES,
+} from '../../common/authz/role-groups';
 import { InventoryMovementType } from '../../common/enums/inventory-movement-type.enum';
 import { StockAlertStatus } from '../../common/enums/stock-alert-status.enum';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
@@ -61,6 +65,34 @@ export class InventoryService {
 
   private isDuplicateKeyError(error: unknown) {
     return error instanceof Error && /duplicate key value/i.test(error.message);
+  }
+
+  private assertInventoryReadAccess(
+    user: RequestUser,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    return this.businessAccessService.assertBusinessRole(
+      user.id,
+      businessId,
+      INVENTORY_READ_ROLES,
+      branchId,
+      'No tienes permiso para consultar inventario.',
+    );
+  }
+
+  private assertInventoryWriteAccess(
+    user: RequestUser,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    return this.businessAccessService.assertBusinessRole(
+      user.id,
+      businessId,
+      INVENTORY_MUTATION_ROLES,
+      branchId,
+      'No tienes permiso para modificar inventario.',
+    );
   }
 
   private normalizeBarcodes(
@@ -504,6 +536,11 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertInventoryReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     return this.inventoryRepository.searchProducts(
       query.business_id,
@@ -519,6 +556,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      query.business_id,
+      query.branch_id,
+    );
+    await this.assertInventoryReadAccess(
+      user,
       query.business_id,
       query.branch_id,
     );
@@ -541,6 +583,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -704,6 +751,11 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertInventoryReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     const product = await this.inventoryRepository.getProductDetail(
       query.business_id,
@@ -741,6 +793,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -864,6 +921,7 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
+    await this.assertInventoryWriteAccess(user, input.business_id);
 
     return this.prisma.$transaction(async (tx) => {
       const currentProduct = await this.inventoryRepository.getProductById(
@@ -917,6 +975,7 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
+    await this.assertInventoryWriteAccess(user, input.business_id);
 
     return this.prisma.$transaction(async (tx) => {
       const currentProduct = await this.inventoryRepository.getProductById(
@@ -972,6 +1031,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      query.business_id,
+      query.branch_id,
+    );
+    await this.assertInventoryReadAccess(
+      user,
       query.business_id,
       query.branch_id,
     );
@@ -1064,6 +1128,11 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertInventoryReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     const movements = await this.inventoryRepository.listInventoryMovements(
       query.business_id,
@@ -1090,6 +1159,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      query.business_id,
+      query.branch_id,
+    );
+    await this.assertInventoryReadAccess(
+      user,
       query.business_id,
       query.branch_id,
     );
@@ -1123,6 +1197,11 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertInventoryReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     return this.stockService.getDefaultInventoryLocationByBranch(
       query.business_id,
@@ -1137,6 +1216,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      query.business_id,
+      query.branch_id,
+    );
+    await this.assertInventoryReadAccess(
+      user,
       query.business_id,
       query.branch_id,
     );
@@ -1159,6 +1243,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -1243,6 +1332,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -1360,6 +1454,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -1508,6 +1607,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -1706,6 +1810,11 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertInventoryReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await this.syncLowStockAlerts(query.business_id, query.branch_id, tx);
@@ -1736,6 +1845,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -1805,6 +1919,11 @@ export class InventoryService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertInventoryReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     const [categories, brands, taxRates, suppliers, locations] =
       await Promise.all([
@@ -1832,6 +1951,7 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
+    await this.assertInventoryWriteAccess(user, input.business_id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -1870,6 +1990,7 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
+    await this.assertInventoryWriteAccess(user, input.business_id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -1908,6 +2029,7 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
+    await this.assertInventoryWriteAccess(user, input.business_id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -1946,6 +2068,7 @@ export class InventoryService {
       user.id,
       input.business_id,
     );
+    await this.assertInventoryWriteAccess(user, input.business_id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -1992,6 +2115,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -2122,6 +2250,11 @@ export class InventoryService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertInventoryWriteAccess(
+      user,
       input.business_id,
       input.branch_id,
     );

@@ -32,6 +32,7 @@ import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
 import { getFriendlyErrorMessage } from "@/lib/api/errors";
+import { canAccessCash } from "@/lib/authz";
 
 export default function CashPage() {
   const hydrated = useHydratedStore();
@@ -63,6 +64,7 @@ export default function CashPage() {
     branch_id,
     openSessionQuery.data?.id ?? null,
   );
+  const role = contextQuery.data?.user.role ?? null;
   const refreshCashData = () => {
     void openSessionQuery.refetch();
 
@@ -78,6 +80,12 @@ export default function CashPage() {
   if (!business_id || !branch_id || !register_id) {
     return (
       <ErrorState message="Selecciona negocio, sucursal y caja para operar la caja." />
+    );
+  }
+
+  if (contextQuery.data && !canAccessCash(role)) {
+    return (
+      <ErrorState message="No tienes permiso para operar caja con el rol actual." />
     );
   }
 
@@ -248,7 +256,8 @@ export default function CashPage() {
                     loading={closeMutation.isPending}
                     onSubmit={async (payload) => {
                       try {
-                        const response = await closeMutation.mutateAsync(payload);
+                        const response =
+                          await closeMutation.mutateAsync(payload);
                         await openSessionQuery.refetch();
                         toast.success(
                           `Caja cerrada. Diferencia: ${response.difference_amount.toFixed(2)}`,

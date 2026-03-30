@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -27,6 +28,85 @@ export interface RegisterOption {
 @Injectable()
 export class BusinessAccessService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private buildRolePrioritySql(columnName: string) {
+    return Prisma.sql`
+      CASE ${Prisma.raw(columnName)}
+        WHEN 'owner' THEN 0
+        WHEN 'admin' THEN 1
+        WHEN 'manager' THEN 2
+        WHEN 'cashier' THEN 3
+        WHEN 'inventory_clerk' THEN 4
+        ELSE 5
+      END
+    `;
+  }
+
+  async getEffectiveRole(
+    userId: string,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    const rows = await this.prisma.$queryRaw<Array<{ role: UserRole }>>(
+      Prisma.sql`
+        SELECT ubr.role::text AS role
+        FROM user_business_roles ubr
+        WHERE ubr.user_id = CAST(${userId} AS uuid)
+          AND ubr.business_id = CAST(${businessId} AS uuid)
+          AND ubr.is_active = true
+          ${
+            branchId
+              ? Prisma.sql`
+                  AND (
+                    ubr.branch_id = CAST(${branchId} AS uuid)
+                    OR ubr.branch_id IS NULL
+                  )
+                `
+              : Prisma.empty
+          }
+        ORDER BY
+          ${
+            branchId
+              ? Prisma.sql`
+                  CASE
+                    WHEN ubr.branch_id = CAST(${branchId} AS uuid) THEN 0
+                    WHEN ubr.branch_id IS NULL THEN 1
+                    ELSE 2
+                  END,
+                `
+              : Prisma.empty
+          }
+          ${this.buildRolePrioritySql('ubr.role')}
+        LIMIT 1
+      `,
+    );
+
+    return rows[0]?.role ?? null;
+  }
+
+  async assertBusinessRole(
+    userId: string,
+    businessId: string,
+    allowedRoles: readonly UserRole[],
+    branchId?: string | null,
+    message = 'No tienes permiso para realizar esta accion.',
+  ) {
+    if (allowedRoles.length === 0) {
+      throw new ForbiddenException(message);
+    }
+
+    const effectiveRole = await this.getEffectiveRole(
+      userId,
+      businessId,
+      branchId,
+    );
+
+    if (!effectiveRole || !allowedRoles.includes(effectiveRole)) {
+      throw new ForbiddenException(message);
+    }
+
+    return effectiveRole;
+  }
 
   async assertBusinessMembership(userId: string, businessId: string) {
     const rows = await this.prisma.$queryRaw<Array<{ businessId: string }>>(

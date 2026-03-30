@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { REPORT_READ_ROLES } from '../../common/authz/role-groups';
 import { BusinessAccessService } from '../shared-db/business-access.service';
 import { CashRepository } from '../cash/cash.repository';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
@@ -35,6 +36,13 @@ export class ReportsService {
         query.branch_id,
       );
     }
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      query.business_id,
+      REPORT_READ_ROLES,
+      query.branch_id,
+      'No tienes permiso para consultar reportes.',
+    );
 
     const [summaryRow, paymentRows, statusRows, itemRows] = await Promise.all([
       this.reportsRepository.getSalesReportSummary({
@@ -118,6 +126,13 @@ export class ReportsService {
         query.branch_id,
       );
     }
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      query.business_id,
+      REPORT_READ_ROLES,
+      query.branch_id,
+      'No tienes permiso para consultar reportes.',
+    );
 
     const sessions = await this.cashRepository.listCashSessions(
       query.business_id,
@@ -209,6 +224,13 @@ export class ReportsService {
         query.branch_id,
       );
     }
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      query.business_id,
+      REPORT_READ_ROLES,
+      query.branch_id,
+      'No tienes permiso para consultar reportes.',
+    );
 
     const items = await this.reportsRepository.listInventoryValuation({
       businessId: query.business_id,

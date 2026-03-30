@@ -17,6 +17,7 @@ import {
 import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
+import { canAccessReports } from "@/lib/authz";
 
 type ReportsTab = "sales" | "cash" | "inventory";
 
@@ -25,6 +26,7 @@ export default function ReportsPage() {
   const { business_id, branch_id, register_id } = useCurrentBusiness();
   const contextQuery = useOperatingContext(business_id, branch_id, register_id);
   const [activeTab, setActiveTab] = useState<ReportsTab>("sales");
+  const role = contextQuery.data?.user.role ?? null;
 
   if (!hydrated) {
     return <LoadingState message="Inicializando reportes..." />;
@@ -33,6 +35,12 @@ export default function ReportsPage() {
   if (!business_id || !branch_id || !register_id) {
     return (
       <ErrorState message="Selecciona negocio, sucursal y caja para consultar reportes." />
+    );
+  }
+
+  if (contextQuery.data && !canAccessReports(role)) {
+    return (
+      <ErrorState message="No tienes permiso para consultar reportes con el rol actual." />
     );
   }
 
@@ -48,7 +56,9 @@ export default function ReportsPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Negocio"
-            value={contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
+            value={
+              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
+            }
           />
           <MetricCard
             label="Sucursal"
