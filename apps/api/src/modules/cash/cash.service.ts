@@ -16,6 +16,7 @@ import { CashSessionSummaryService } from './cash-session-summary.service';
 import type { CloseCashSessionDto } from './dto/close-cash-session.dto';
 import type { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 import type { GetOpenCashSessionDto } from './dto/get-open-cash-session.dto';
+import type { ListCashSessionsDto } from './dto/list-cash-sessions.dto';
 import type { OpenCashSessionDto } from './dto/open-cash-session.dto';
 
 const roundCurrency = (value: number) =>
@@ -32,6 +33,67 @@ export class CashService {
     private readonly prisma: PrismaService,
     private readonly registerValidationService: RegisterValidationService,
   ) {}
+
+  private buildPaymentTotals(input: {
+    cashTotal: number;
+    cardTotal: number;
+    transferTotal: number;
+    mixedTotal: number;
+    storeCreditTotal: number;
+  }) {
+    return {
+      cash: roundCurrency(input.cashTotal),
+      card: roundCurrency(input.cardTotal),
+      transfer: roundCurrency(input.transferTotal),
+      mixed: roundCurrency(input.mixedTotal),
+      store_credit: roundCurrency(input.storeCreditTotal),
+    };
+  }
+
+  private buildSessionListItem(
+    session: Awaited<ReturnType<CashRepository['listCashSessions']>>[number],
+  ) {
+    return {
+      id: session.id,
+      businessId: session.businessId,
+      branchId: session.branchId,
+      registerId: session.registerId,
+      registerName: session.registerName ?? null,
+      registerCode: session.registerCode ?? null,
+      branchName: session.branchName ?? null,
+      openingAmount: roundCurrency(session.openingAmount),
+      closingExpected:
+        session.closingExpected !== null
+          ? roundCurrency(session.closingExpected)
+          : null,
+      closingCounted:
+        session.closingCounted !== null
+          ? roundCurrency(session.closingCounted)
+          : null,
+      differenceAmount:
+        session.differenceAmount !== null
+          ? roundCurrency(session.differenceAmount)
+          : null,
+      status: session.status,
+      openedByName: session.openedByName ?? null,
+      openedAt: session.openedAt,
+      closedByName: session.closedByName ?? null,
+      closedAt: session.closedAt,
+      notes: session.notes,
+      salesTotal: roundCurrency(session.salesTotal),
+      salesCount: roundCurrency(session.salesCount),
+      paymentTotals: this.buildPaymentTotals({
+        cashTotal: session.cashTotal,
+        cardTotal: session.cardTotal,
+        transferTotal: session.transferTotal,
+        mixedTotal: session.mixedTotal,
+        storeCreditTotal: session.storeCreditTotal,
+      }),
+      manualIncomeTotal: roundCurrency(session.manualIncomeTotal),
+      manualExpenseTotal: roundCurrency(session.manualExpenseTotal),
+      expectedCash: roundCurrency(session.expectedCash),
+    };
+  }
 
   async getOpenCashSessionByRegister(
     registerId: string,
@@ -197,6 +259,63 @@ export class CashService {
     );
 
     return summary;
+  }
+
+  async getCashSessionMovements(cashSessionId: string, user: RequestUser) {
+    const session = await this.cashRepository.getCashSessionById(cashSessionId);
+
+    if (!session) {
+      throw new NotFoundException('La sesion de caja no existe.');
+    }
+
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      session.businessId,
+    );
+    await this.businessAccessService.assertBranchAccess(
+      user.id,
+      session.businessId,
+      session.branchId,
+    );
+
+    return this.cashRepository.getCashMovements(cashSessionId);
+  }
+
+  async listCashSessions(query: ListCashSessionsDto, user: RequestUser) {
+    await this.businessAccessService.assertBusinessMembership(
+      user.id,
+      query.business_id,
+    );
+
+    if (query.branch_id) {
+      await this.businessAccessService.assertBranchAccess(
+        user.id,
+        query.business_id,
+        query.branch_id,
+      );
+
+      if (query.register_id) {
+        await this.registerValidationService.assertRegisterBelongsToBranch(
+          query.register_id,
+          query.branch_id,
+          query.business_id,
+        );
+      }
+    }
+
+    const sessions = await this.cashRepository.listCashSessions(
+      query.business_id,
+      {
+        branchId: query.branch_id,
+        registerId: query.register_id,
+        status: query.status,
+        dateFrom: query.date_from,
+        dateTo: query.date_to,
+        limit: query.limit,
+      },
+    );
+
+    return sessions.map((session) => this.buildSessionListItem(session));
   }
 
   async closeCashSession(input: CloseCashSessionDto, user: RequestUser) {

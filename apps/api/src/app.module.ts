@@ -10,6 +10,7 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { SharedDbModule } from './modules/shared-db/shared-db.module';
 
@@ -28,6 +29,7 @@ import { SharedDbModule } from './modules/shared-db/shared-db.module';
     CustomersModule,
     HealthModule,
     CashModule,
+    ReportsModule,
     SalesModule,
     InventoryModule,
     PurchasingModule,

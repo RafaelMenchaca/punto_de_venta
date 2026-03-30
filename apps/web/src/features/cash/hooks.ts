@@ -6,6 +6,7 @@ import {
   closeCashSession,
   createCashMovement,
   getCashSessionSummary,
+  getCashSessions,
   getOpenCashSessionByRegister,
   openCashSession,
 } from "./api";
@@ -25,6 +26,7 @@ export function useOpenCashSessionQuery(
     enabled: Boolean(registerId && businessId && branchId),
     retry: 1,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -35,6 +37,41 @@ export function useCashSessionSummaryQuery(cashSessionId: string | null) {
     enabled: Boolean(cashSessionId),
     retry: 1,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCashSessionsQuery(params: {
+  businessId: string | null;
+  branchId: string | null;
+  registerId: string | null;
+  status: string | null;
+  dateFrom: string;
+  dateTo: string;
+}) {
+  return useQuery({
+    queryKey: queryKeys.cashSessionsList(
+      params.businessId,
+      params.branchId,
+      params.registerId,
+      params.status,
+      params.dateFrom,
+      params.dateTo,
+    ),
+    queryFn: () =>
+      getCashSessions({
+        business_id: params.businessId!,
+        branch_id: params.branchId ?? undefined,
+        register_id: params.registerId ?? undefined,
+        status: params.status ?? undefined,
+        date_from: params.dateFrom || undefined,
+        date_to: params.dateTo || undefined,
+        limit: 50,
+      }),
+    enabled: Boolean(params.businessId),
+    retry: 1,
+    staleTime: 20_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -50,6 +87,9 @@ export function useOpenCashSessionMutation(
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["cash", "sessions"],
       });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.operatingContext(businessId, branchId, registerId),
@@ -80,6 +120,9 @@ export function useCreateCashMovementMutation(
         queryKey: queryKeys.cashSessionSummary(cashSessionId),
       });
       await queryClient.invalidateQueries({
+        queryKey: ["cash", "sessions"],
+      });
+      await queryClient.invalidateQueries({
         queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
       });
       await queryClient.invalidateQueries({
@@ -102,6 +145,9 @@ export function useCloseCashSessionMutation(
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.cashOpenSession(registerId, businessId, branchId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["cash", "sessions"],
       });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.operatingContext(businessId, branchId, registerId),

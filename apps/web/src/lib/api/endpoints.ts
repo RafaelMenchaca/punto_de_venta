@@ -9,6 +9,7 @@ export const apiEndpoints = {
     `/cash/sessions/${cashSessionId}/summary`,
   cashSessionMovements: (cashSessionId: string) =>
     `/cash/sessions/${cashSessionId}/movements`,
+  cashSessionsList: "/cash/sessions",
   cashOpen: "/cash/sessions/open",
   cashClose: "/cash/sessions/close",
   customers: "/customers",
@@ -72,5 +73,8 @@ export const apiEndpoints = {
   inventoryCreateTaxRate: "/inventory/catalogs/tax-rates",
   inventoryCreateSupplier: "/inventory/catalogs/suppliers",
   inventoryEntries: "/inventory/entries",
+  reportsSales: "/reports/sales",
+  reportsCashSessions: "/reports/cash-sessions",
+  reportsInventoryValuation: "/reports/inventory-valuation",
   health: "/health",
 } as const;
