@@ -49,6 +49,7 @@ import type { InventoryProductListItem } from "@/features/inventory/types";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
 import { getFriendlyErrorMessage } from "@/lib/api/errors";
+import { canReadInventory, canWriteInventory } from "@/lib/authz";
 import { formatCurrency } from "@/lib/utils";
 
 type InventoryTab =
@@ -69,11 +70,38 @@ export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<InventoryTab>("articles");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [formHighlighted, setFormHighlighted] = useState(false);
   const formSectionRef = useRef<HTMLDivElement | null>(null);
   const formHighlightTimerRef = useRef<number | null>(null);
+  const role = contextQuery.data?.user.role ?? null;
+  const canMutateInventory = canWriteInventory(role);
+  const inventoryTabs = useMemo<Array<{ id: InventoryTab; label: string }>>(
+    () =>
+      canMutateInventory
+        ? [
+            { id: "articles", label: "Articulos" },
+            { id: "form", label: "Alta de articulo" },
+            { id: "entries", label: "Entradas" },
+            { id: "locations", label: "Ubicaciones" },
+            { id: "transfers", label: "Transferencias" },
+            { id: "movements", label: "Movimientos" },
+            { id: "alerts", label: "Alertas" },
+            { id: "catalogs", label: "Catalogos" },
+          ]
+        : [
+            { id: "articles", label: "Articulos" },
+            { id: "movements", label: "Movimientos" },
+          ],
+    [canMutateInventory],
+  );
+  const resolvedActiveTab: InventoryTab =
+    inventoryTabs.find((tab) => tab.id === activeTab)?.id ??
+    inventoryTabs[0]?.id ??
+    "articles";
 
   const productsQuery = useInventoryProductsQuery(
     business_id,
@@ -82,7 +110,11 @@ export default function InventoryPage() {
     true,
   );
   const catalogsQuery = useInventoryCatalogsQuery(business_id, branch_id);
-  const locationsQuery = useInventoryLocationsQuery(business_id, branch_id, true);
+  const locationsQuery = useInventoryLocationsQuery(
+    business_id,
+    branch_id,
+    true,
+  );
   const defaultLocationQuery = useDefaultInventoryLocation(
     business_id,
     branch_id,
@@ -102,11 +134,7 @@ export default function InventoryPage() {
     business_id,
     branch_id,
   );
-  const stockQuery = useProductStock(
-    selectedProductId,
-    business_id,
-    branch_id,
-  );
+  const stockQuery = useProductStock(selectedProductId, business_id, branch_id);
   const createProductMutation = useCreateInventoryProductMutation(
     business_id,
     branch_id,
@@ -144,7 +172,8 @@ export default function InventoryPage() {
   }, [productsQuery.data, statusFilter]);
 
   const selectedProduct =
-    productsQuery.data?.find((product) => product.id === selectedProductId) ?? null;
+    productsQuery.data?.find((product) => product.id === selectedProductId) ??
+    null;
 
   useEffect(
     () => () => {
@@ -165,16 +194,11 @@ export default function InventoryPage() {
     );
   }
 
-  const inventoryTabs: Array<{ id: InventoryTab; label: string }> = [
-    { id: "articles", label: "Articulos" },
-    { id: "form", label: "Alta de articulo" },
-    { id: "entries", label: "Entradas" },
-    { id: "locations", label: "Ubicaciones" },
-    { id: "transfers", label: "Transferencias" },
-    { id: "movements", label: "Movimientos" },
-    { id: "alerts", label: "Alertas" },
-    { id: "catalogs", label: "Catalogos" },
-  ];
+  if (contextQuery.data && !canReadInventory(role)) {
+    return (
+      <ErrorState message="No tienes permiso para consultar inventario con el rol actual." />
+    );
+  }
 
   const handleStartEditing = (product: InventoryProductListItem) => {
     setEditingProductId(product.id);
@@ -235,7 +259,9 @@ export default function InventoryPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Negocio"
-            value={contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
+            value={
+              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
+            }
           />
           <MetricCard
             label="Sucursal"
@@ -253,7 +279,7 @@ export default function InventoryPage() {
           <Button
             key={tab.id}
             type="button"
-            variant={activeTab === tab.id ? "default" : "outline"}
+            variant={resolvedActiveTab === tab.id ? "default" : "outline"}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
@@ -261,7 +287,7 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {activeTab === "articles" ? (
+      {resolvedActiveTab === "articles" ? (
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -272,6 +298,9 @@ export default function InventoryPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
+              {!canMutateInventory ? (
+                <NoticeBanner message="Estas viendo inventario en modo solo lectura." />
+              ) : null}
               <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
                 <Input
                   value={searchTerm}
@@ -332,10 +361,12 @@ export default function InventoryPage() {
                 {filteredProducts.map((product) => {
                   const deactivateLoading =
                     deactivateProductMutation.isPending &&
-                    deactivateProductMutation.variables?.productId === product.id;
+                    deactivateProductMutation.variables?.productId ===
+                      product.id;
                   const reactivateLoading =
                     reactivateProductMutation.isPending &&
-                    reactivateProductMutation.variables?.productId === product.id;
+                    reactivateProductMutation.variables?.productId ===
+                      product.id;
                   const lowStock =
                     product.trackInventory &&
                     product.availableStock <= product.minStock;
@@ -354,7 +385,9 @@ export default function InventoryPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">{product.name}</p>
                             <Badge
-                              variant={product.isActive ? "success" : "destructive"}
+                              variant={
+                                product.isActive ? "success" : "destructive"
+                              }
                             >
                               {product.isActive ? "Activo" : "Inactivo"}
                             </Badge>
@@ -401,50 +434,62 @@ export default function InventoryPage() {
                           >
                             Ver stock y movimientos
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleStartEditing(product)}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={product.isActive ? "destructive" : "default"}
-                            disabled={deactivateLoading || reactivateLoading}
-                            onClick={async () => {
-                              try {
-                                if (product.isActive) {
-                                  await deactivateProductMutation.mutateAsync({
-                                    productId: product.id,
-                                    payload: { business_id },
-                                  });
-                                  toast.success("Articulo desactivado.");
-                                } else {
-                                  await reactivateProductMutation.mutateAsync({
-                                    productId: product.id,
-                                    payload: { business_id },
-                                  });
-                                  toast.success("Articulo reactivado.");
+                          {canMutateInventory ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleStartEditing(product)}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={
+                                  product.isActive ? "destructive" : "default"
                                 }
-                              } catch (error) {
-                                toast.error(
-                                  getFriendlyErrorMessage(
-                                    error,
-                                    product.isActive
-                                      ? "No se pudo desactivar el articulo."
-                                      : "No se pudo reactivar el articulo.",
-                                  ),
-                                );
-                              }
-                            }}
-                          >
-                            {deactivateLoading || reactivateLoading
-                              ? "Guardando..."
-                              : product.isActive
-                                ? "Desactivar"
-                                : "Reactivar"}
-                          </Button>
+                                disabled={
+                                  deactivateLoading || reactivateLoading
+                                }
+                                onClick={async () => {
+                                  try {
+                                    if (product.isActive) {
+                                      await deactivateProductMutation.mutateAsync(
+                                        {
+                                          productId: product.id,
+                                          payload: { business_id },
+                                        },
+                                      );
+                                      toast.success("Articulo desactivado.");
+                                    } else {
+                                      await reactivateProductMutation.mutateAsync(
+                                        {
+                                          productId: product.id,
+                                          payload: { business_id },
+                                        },
+                                      );
+                                      toast.success("Articulo reactivado.");
+                                    }
+                                  } catch (error) {
+                                    toast.error(
+                                      getFriendlyErrorMessage(
+                                        error,
+                                        product.isActive
+                                          ? "No se pudo desactivar el articulo."
+                                          : "No se pudo reactivar el articulo.",
+                                      ),
+                                    );
+                                  }
+                                }}
+                              >
+                                {deactivateLoading || reactivateLoading
+                                  ? "Guardando..."
+                                  : product.isActive
+                                    ? "Desactivar"
+                                    : "Reactivar"}
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -507,7 +552,8 @@ export default function InventoryPage() {
                   />
                 )}
 
-                {selectedProductDetailQuery.data?.trackInventory &&
+                {canMutateInventory &&
+                selectedProductDetailQuery.data?.trackInventory &&
                 stockQuery.data?.locations.length ? (
                   <StockAdjustmentForm
                     business_id={business_id}
@@ -597,7 +643,8 @@ export default function InventoryPage() {
                         Costo: {formatCurrency(movement.unitCost)}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Referencia: {movement.referenceLabel ?? "Sin referencia"}
+                        Referencia:{" "}
+                        {movement.referenceLabel ?? "Sin referencia"}
                       </p>
                       {movement.notes ? (
                         <p className="mt-2 text-sm">{movement.notes}</p>
@@ -616,7 +663,7 @@ export default function InventoryPage() {
         </div>
       ) : null}
 
-      {activeTab === "form" ? (
+      {resolvedActiveTab === "form" ? (
         <div ref={formSectionRef} className="space-y-4">
           {catalogsQuery.error && !catalogsQuery.data ? (
             <ErrorState
@@ -649,7 +696,8 @@ export default function InventoryPage() {
               branch_id={branch_id}
               catalogs={catalogsQuery.data}
               loading={
-                createProductMutation.isPending || updateProductMutation.isPending
+                createProductMutation.isPending ||
+                updateProductMutation.isPending
               }
               mode={editingProductId ? "edit" : "create"}
               initialProduct={editingProductDetailQuery.data}
@@ -669,7 +717,8 @@ export default function InventoryPage() {
                     return;
                   }
 
-                  const response = await createProductMutation.mutateAsync(payload);
+                  const response =
+                    await createProductMutation.mutateAsync(payload);
                   setSelectedProductId(response.product_id);
                   toast.success("Articulo creado correctamente.");
                 } catch (error) {
@@ -688,7 +737,7 @@ export default function InventoryPage() {
         </div>
       ) : null}
 
-      {activeTab === "entries" ? (
+      {resolvedActiveTab === "entries" ? (
         catalogsQuery.data ? (
           <InventoryEntryForm
             business_id={business_id}
@@ -720,7 +769,7 @@ export default function InventoryPage() {
         )
       ) : null}
 
-      {activeTab === "locations" ? (
+      {resolvedActiveTab === "locations" ? (
         locationsQuery.data ? (
           <InventoryLocationManager
             businessId={business_id}
@@ -734,14 +783,16 @@ export default function InventoryPage() {
           <LoadingState message="Cargando ubicaciones..." />
         ) : (
           <ErrorState
-            message={locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."}
+            message={
+              locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."
+            }
             actionLabel="Reintentar"
             onAction={() => void locationsQuery.refetch()}
           />
         )
       ) : null}
 
-      {activeTab === "transfers" ? (
+      {resolvedActiveTab === "transfers" ? (
         locationsQuery.data ? (
           <InventoryTransferForm
             businessId={business_id}
@@ -752,14 +803,16 @@ export default function InventoryPage() {
           <LoadingState message="Cargando ubicaciones para transferencias..." />
         ) : (
           <ErrorState
-            message={locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."}
+            message={
+              locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."
+            }
             actionLabel="Reintentar"
             onAction={() => void locationsQuery.refetch()}
           />
         )
       ) : null}
 
-      {activeTab === "movements" ? (
+      {resolvedActiveTab === "movements" ? (
         locationsQuery.data ? (
           <InventoryMovementsPanel
             businessId={business_id}
@@ -770,18 +823,20 @@ export default function InventoryPage() {
           <LoadingState message="Cargando filtros de movimientos..." />
         ) : (
           <ErrorState
-            message={locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."}
+            message={
+              locationsErrorMessage ?? "No se pudieron cargar las ubicaciones."
+            }
             actionLabel="Reintentar"
             onAction={() => void locationsQuery.refetch()}
           />
         )
       ) : null}
 
-      {activeTab === "alerts" ? (
+      {resolvedActiveTab === "alerts" ? (
         <InventoryAlertsPanel businessId={business_id} branchId={branch_id} />
       ) : null}
 
-      {activeTab === "catalogs" ? (
+      {resolvedActiveTab === "catalogs" ? (
         catalogsQuery.data ? (
           <InventoryCatalogsPanel
             business_id={business_id}

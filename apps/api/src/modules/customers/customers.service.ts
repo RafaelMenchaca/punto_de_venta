@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { SALES_OPERATION_ROLES } from '../../common/authz/role-groups';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { BusinessAccessService } from '../shared-db/business-access.service';
@@ -19,6 +20,13 @@ export class CustomersService {
       user.id,
       query.business_id,
     );
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      query.business_id,
+      SALES_OPERATION_ROLES,
+      null,
+      'No tienes permiso para operar clientes.',
+    );
 
     return this.customersRepository.listCustomers(
       query.business_id,
@@ -31,6 +39,13 @@ export class CustomersService {
     await this.businessAccessService.assertBusinessMembership(
       user.id,
       input.business_id,
+    );
+    await this.businessAccessService.assertBusinessRole(
+      user.id,
+      input.business_id,
+      SALES_OPERATION_ROLES,
+      null,
+      'No tienes permiso para operar clientes.',
     );
 
     const normalizedEmail = input.email?.trim().toLowerCase() ?? null;

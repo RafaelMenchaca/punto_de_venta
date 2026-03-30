@@ -15,6 +15,11 @@ import { useInventoryCatalogsQuery } from "@/features/inventory/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
 import { getFriendlyErrorMessage } from "@/lib/api/errors";
+import {
+  canManagePurchaseOrders,
+  canReadPurchasing,
+  canReceivePurchasing,
+} from "@/lib/authz";
 import { formatCurrency } from "@/lib/utils";
 import {
   useCancelPurchaseOrderMutation,
@@ -50,7 +55,10 @@ const EMPTY_PURCHASE_ORDERS: PurchaseOrderListItem[] = [];
 const EMPTY_GOODS_RECEIPTS: GoodsReceiptListItem[] = [];
 const EMPTY_SUPPLIERS: PurchasingSupplier[] = [];
 
-const matchesTerm = (values: Array<string | null | undefined>, term: string) => {
+const matchesTerm = (
+  values: Array<string | null | undefined>,
+  term: string,
+) => {
   const normalizedTerm = term.trim().toLowerCase();
 
   if (!normalizedTerm) {
@@ -131,6 +139,24 @@ export default function PurchasingPage() {
     business_id,
     branch_id,
   );
+  const role = contextQuery.data?.user.role ?? null;
+  const canManageOrders = canManagePurchaseOrders(role);
+  const canReceive = canReceivePurchasing(role);
+  const tabs = useMemo<Array<{ id: PurchasingTab; label: string }>>(
+    () => [
+      { id: "orders", label: "Ordenes" },
+      ...(canManageOrders
+        ? [{ id: "new-order" as const, label: "Nueva orden" }]
+        : []),
+      { id: "receipts", label: "Recepciones" },
+      ...(canManageOrders
+        ? [{ id: "suppliers" as const, label: "Proveedores" }]
+        : []),
+    ],
+    [canManageOrders],
+  );
+  const resolvedActiveTab: PurchasingTab =
+    tabs.find((tab) => tab.id === activeTab)?.id ?? tabs[0]?.id ?? "orders";
 
   const suppliers = suppliersQuery.data ?? EMPTY_SUPPLIERS;
   const orders = ordersQuery.data ?? EMPTY_PURCHASE_ORDERS;
@@ -190,14 +216,15 @@ export default function PurchasingPage() {
     );
   }
 
-  const tabs: Array<{ id: PurchasingTab; label: string }> = [
-    { id: "orders", label: "Ordenes" },
-    { id: "new-order", label: "Nueva orden" },
-    { id: "receipts", label: "Recepciones" },
-    { id: "suppliers", label: "Proveedores" },
-  ];
+  if (contextQuery.data && !canReadPurchasing(role)) {
+    return (
+      <ErrorState message="No tienes permiso para consultar compras con el rol actual." />
+    );
+  }
 
-  const handleStartEditingOrder = (order: PurchaseOrderListItem | PurchaseOrderDetail) => {
+  const handleStartEditingOrder = (
+    order: PurchaseOrderListItem | PurchaseOrderDetail,
+  ) => {
     setEditingOrderId(order.id);
     setSelectedOrderId(order.id);
     setActiveTab("new-order");
@@ -232,7 +259,8 @@ export default function PurchasingPage() {
           "No se pudo cargar la orden para editar.",
         )
       : null;
-  const editingOrderReady = !editingOrderId || Boolean(editingOrderDetailQuery.data);
+  const editingOrderReady =
+    !editingOrderId || Boolean(editingOrderDetailQuery.data);
 
   const orderListErrorMessage =
     ordersQuery.error instanceof Error && !ordersQuery.data
@@ -267,7 +295,9 @@ export default function PurchasingPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Negocio"
-            value={contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
+            value={
+              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
+            }
           />
           <MetricCard
             label="Sucursal"
@@ -289,7 +319,7 @@ export default function PurchasingPage() {
           <Button
             key={tab.id}
             type="button"
-            variant={activeTab === tab.id ? "default" : "outline"}
+            variant={resolvedActiveTab === tab.id ? "default" : "outline"}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
@@ -297,7 +327,7 @@ export default function PurchasingPage() {
         ))}
       </div>
 
-      {activeTab === "orders" ? (
+      {resolvedActiveTab === "orders" ? (
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
           <Card>
             <CardHeader>
@@ -358,7 +388,9 @@ export default function PurchasingPage() {
                           {order.supplierName}
                         </p>
                       </div>
-                      <p className="font-semibold">{formatCurrency(order.total)}</p>
+                      <p className="font-semibold">
+                        {formatCurrency(order.total)}
+                      </p>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Badge
@@ -399,83 +431,99 @@ export default function PurchasingPage() {
                 : null
             }
             onRetry={() => void selectedOrderDetailQuery.refetch()}
-            onEdit={() => {
-              if (selectedOrderDetailQuery.data?.canEdit) {
-                handleStartEditingOrder(selectedOrderDetailQuery.data);
-              }
-            }}
-            onSubmit={() => {
-              if (!selectedOrderDetailQuery.data) {
-                return;
-              }
+            onEdit={
+              canManageOrders
+                ? () => {
+                    if (selectedOrderDetailQuery.data?.canEdit) {
+                      handleStartEditingOrder(selectedOrderDetailQuery.data);
+                    }
+                  }
+                : undefined
+            }
+            onSubmit={
+              canManageOrders
+                ? () => {
+                    if (!selectedOrderDetailQuery.data) {
+                      return;
+                    }
 
-              void submitOrderMutation
-                .mutateAsync({
-                  purchaseOrderId: selectedOrderDetailQuery.data.id,
-                  payload: {
-                    business_id,
-                    branch_id,
-                  },
-                })
-                .then(() => {
-                  toast.success("Orden enviada.");
-                  void selectedOrderDetailQuery.refetch();
-                  void ordersQuery.refetch();
-                })
-                .catch((error) => {
-                  toast.error(
-                    getFriendlyErrorMessage(
-                      error,
-                      "No se pudo enviar la orden.",
-                    ),
-                  );
-                });
-            }}
-            onCancel={() => {
-              if (!selectedOrderDetailQuery.data) {
-                return;
-              }
+                    void submitOrderMutation
+                      .mutateAsync({
+                        purchaseOrderId: selectedOrderDetailQuery.data.id,
+                        payload: {
+                          business_id,
+                          branch_id,
+                        },
+                      })
+                      .then(() => {
+                        toast.success("Orden enviada.");
+                        void selectedOrderDetailQuery.refetch();
+                        void ordersQuery.refetch();
+                      })
+                      .catch((error) => {
+                        toast.error(
+                          getFriendlyErrorMessage(
+                            error,
+                            "No se pudo enviar la orden.",
+                          ),
+                        );
+                      });
+                  }
+                : undefined
+            }
+            onCancel={
+              canManageOrders
+                ? () => {
+                    if (!selectedOrderDetailQuery.data) {
+                      return;
+                    }
 
-              if (
-                !window.confirm(
-                  "Se cancelara la orden seleccionada. Deseas continuar?",
-                )
-              ) {
-                return;
-              }
+                    if (
+                      !window.confirm(
+                        "Se cancelara la orden seleccionada. Deseas continuar?",
+                      )
+                    ) {
+                      return;
+                    }
 
-              void cancelOrderMutation
-                .mutateAsync({
-                  purchaseOrderId: selectedOrderDetailQuery.data.id,
-                  payload: {
-                    business_id,
-                    branch_id,
-                  },
-                })
-                .then(() => {
-                  toast.success("Orden cancelada.");
-                  void selectedOrderDetailQuery.refetch();
-                  void ordersQuery.refetch();
-                })
-                .catch((error) => {
-                  toast.error(
-                    getFriendlyErrorMessage(
-                      error,
-                      "No se pudo cancelar la orden.",
-                    ),
-                  );
-                });
-            }}
-            onReceive={() => {
-              if (selectedOrderDetailQuery.data) {
-                handleReceiveFromOrder(selectedOrderDetailQuery.data.id);
-              }
-            }}
+                    void cancelOrderMutation
+                      .mutateAsync({
+                        purchaseOrderId: selectedOrderDetailQuery.data.id,
+                        payload: {
+                          business_id,
+                          branch_id,
+                        },
+                      })
+                      .then(() => {
+                        toast.success("Orden cancelada.");
+                        void selectedOrderDetailQuery.refetch();
+                        void ordersQuery.refetch();
+                      })
+                      .catch((error) => {
+                        toast.error(
+                          getFriendlyErrorMessage(
+                            error,
+                            "No se pudo cancelar la orden.",
+                          ),
+                        );
+                      });
+                  }
+                : undefined
+            }
+            onReceive={
+              canReceive
+                ? () => {
+                    if (selectedOrderDetailQuery.data) {
+                      handleReceiveFromOrder(selectedOrderDetailQuery.data.id);
+                    }
+                  }
+                : undefined
+            }
           />
         </div>
       ) : null}
 
-      {activeTab === "new-order" ? (
+      {resolvedActiveTab === "new-order" ? (
         <div ref={formSectionRef} className="space-y-4">
           {suppliersErrorMessage ? (
             <ErrorState
@@ -485,7 +533,9 @@ export default function PurchasingPage() {
             />
           ) : null}
 
-          {editingOrderId && editingOrderDetailQuery.isLoading && !editingOrderDetailQuery.data ? (
+          {editingOrderId &&
+          editingOrderDetailQuery.isLoading &&
+          !editingOrderDetailQuery.data ? (
             <LoadingState message="Cargando orden para editar..." />
           ) : null}
 
@@ -532,7 +582,8 @@ export default function PurchasingPage() {
                     return;
                   }
 
-                  const response = await createOrderMutation.mutateAsync(payload);
+                  const response =
+                    await createOrderMutation.mutateAsync(payload);
                   toast.success("Orden guardada como borrador.");
                   setSelectedOrderId(response.id);
                   setEditingOrderId(null);
@@ -554,7 +605,7 @@ export default function PurchasingPage() {
         </div>
       ) : null}
 
-      {activeTab === "receipts" ? (
+      {resolvedActiveTab === "receipts" ? (
         <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
           <Card>
             <CardHeader>
@@ -616,7 +667,8 @@ export default function PurchasingPage() {
                         </p>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {formatQuantity(receipt.totalQuantity)} uds | {receipt.locationName}
+                        {formatQuantity(receipt.totalQuantity)} uds |{" "}
+                        {receipt.locationName}
                       </p>
                     </div>
                     <p className="mt-3 text-sm text-muted-foreground">
@@ -687,11 +739,11 @@ export default function PurchasingPage() {
               order={selectedReceiptOrderDetailQuery.data ?? null}
               locations={locations}
               loading={createReceiptMutation.isPending}
+              readOnly={!canReceive}
               onSubmit={async (payload) => {
                 try {
-                  const response = await createReceiptMutation.mutateAsync(
-                    payload,
-                  );
+                  const response =
+                    await createReceiptMutation.mutateAsync(payload);
                   setSelectedReceiptId(response.id);
                   toast.success("Recepcion registrada.");
                   void selectedReceiptOrderDetailQuery.refetch();
@@ -726,7 +778,7 @@ export default function PurchasingPage() {
         </div>
       ) : null}
 
-      {activeTab === "suppliers" ? (
+      {resolvedActiveTab === "suppliers" ? (
         suppliersQuery.isLoading && !suppliersQuery.data ? (
           <LoadingState message="Cargando proveedores..." />
         ) : suppliersErrorMessage ? (
@@ -828,7 +880,8 @@ function ReceiptDetailCard({
             >
               <p className="font-medium">{item.productName}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cantidad: {item.quantity} | Costo: {formatCurrency(item.unitCost)}
+                Cantidad: {item.quantity} | Costo:{" "}
+                {formatCurrency(item.unitCost)}
               </p>
             </div>
           ))}

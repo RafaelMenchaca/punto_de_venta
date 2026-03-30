@@ -51,6 +51,7 @@ export function GoodsReceiptForm({
   order,
   locations,
   loading,
+  readOnly = false,
   onSubmit,
 }: {
   businessId: string;
@@ -58,6 +59,7 @@ export function GoodsReceiptForm({
   order: PurchaseOrderDetail | null;
   locations: InventoryLocationOption[];
   loading: boolean;
+  readOnly?: boolean;
   onSubmit: (payload: CreateGoodsReceiptPayload) => Promise<void>;
 }) {
   const [locationId, setLocationId] = useState("");
@@ -66,7 +68,10 @@ export function GoodsReceiptForm({
     orderToLines(order),
   );
   const defaultLocationId = useMemo(
-    () => locations.find((location) => location.isDefault)?.id ?? locations[0]?.id ?? "",
+    () =>
+      locations.find((location) => location.isDefault)?.id ??
+      locations[0]?.id ??
+      "",
     [locations],
   );
   const selectedLocationId = locationId || defaultLocationId;
@@ -97,6 +102,7 @@ export function GoodsReceiptForm({
   );
 
   const isInvalid =
+    readOnly ||
     !order ||
     !selectedLocationId ||
     lines.length === 0 ||
@@ -126,6 +132,12 @@ export function GoodsReceiptForm({
           </div>
         ) : (
           <>
+            {readOnly ? (
+              <div className="rounded-2xl border border-dashed border-border bg-white/50 p-4 text-sm text-muted-foreground">
+                Tu rol solo puede consultar recepciones. No puedes registrar una
+                nueva recepcion.
+              </div>
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl border border-border bg-white/60 p-4">
                 <p className="text-sm text-muted-foreground">Orden</p>
@@ -141,6 +153,7 @@ export function GoodsReceiptForm({
                   id="receipt-location"
                   className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   value={selectedLocationId}
+                  disabled={readOnly}
                   onChange={(event) => setLocationId(event.target.value)}
                 >
                   <option value="">Selecciona una ubicacion</option>
@@ -184,6 +197,7 @@ export function GoodsReceiptForm({
                       step="0.001"
                       max={line.pending_quantity}
                       value={line.quantity}
+                      disabled={readOnly}
                       onChange={(event) =>
                         setLines((current) =>
                           current.map((currentLine) =>
@@ -203,11 +217,15 @@ export function GoodsReceiptForm({
                       min="0"
                       step="0.01"
                       value={line.unit_cost}
+                      disabled={readOnly}
                       onChange={(event) =>
                         setLines((current) =>
                           current.map((currentLine) =>
                             currentLine.id === line.id
-                              ? { ...currentLine, unit_cost: event.target.value }
+                              ? {
+                                  ...currentLine,
+                                  unit_cost: event.target.value,
+                                }
                               : currentLine,
                           ),
                         )
@@ -219,9 +237,12 @@ export function GoodsReceiptForm({
                     <Button
                       type="button"
                       variant="outline"
+                      disabled={readOnly}
                       onClick={() =>
                         setLines((current) =>
-                          current.filter((currentLine) => currentLine.id !== line.id),
+                          current.filter(
+                            (currentLine) => currentLine.id !== line.id,
+                          ),
                         )
                       }
                     >
@@ -233,8 +254,14 @@ export function GoodsReceiptForm({
             </div>
 
             <div className="grid gap-3 rounded-2xl bg-muted/70 p-4 text-sm md:grid-cols-2">
-              <Metric label="Cantidad recibida" value={String(totals.quantity)} />
-              <Metric label="Valor estimado" value={formatCurrency(totals.total)} />
+              <Metric
+                label="Cantidad recibida"
+                value={String(totals.quantity)}
+              />
+              <Metric
+                label="Valor estimado"
+                value={formatCurrency(totals.total)}
+              />
             </div>
 
             <div className="space-y-2">
@@ -242,6 +269,7 @@ export function GoodsReceiptForm({
               <Textarea
                 id="receipt-notes"
                 value={notes}
+                disabled={readOnly}
                 onChange={(event) => setNotes(event.target.value)}
                 placeholder="Observaciones de la recepcion"
               />
@@ -254,6 +282,10 @@ export function GoodsReceiptForm({
             type="button"
             disabled={loading || isInvalid}
             onClick={async () => {
+              if (readOnly) {
+                return;
+              }
+
               if (!order) {
                 return;
               }
@@ -303,13 +335,7 @@ function Field({
   );
 }
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">

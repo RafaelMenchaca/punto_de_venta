@@ -1,4 +1,5 @@
 import type { CashSession } from "@/features/cash/types";
+import type { UserRole } from "@/lib/authz";
 
 export interface ContextBusinessOption {
   id: string;
@@ -23,7 +24,7 @@ export interface OperatingContextResponse {
     id: string;
     full_name: string | null;
     email: string | null;
-    role: string | null;
+    role: UserRole | null;
   };
   businesses: ContextBusinessOption[];
   branches: ContextBranchOption[];

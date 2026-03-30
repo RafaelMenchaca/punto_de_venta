@@ -4,6 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  PURCHASING_ADMIN_ROLES,
+  PURCHASING_OPERATION_ROLES,
+  PURCHASING_READ_ROLES,
+} from '../../common/authz/role-groups';
 import { InventoryMovementType } from '../../common/enums/inventory-movement-type.enum';
 import { PurchaseOrderStatus } from '../../common/enums/purchase-order-status.enum';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
@@ -152,6 +157,48 @@ export class PurchasingService {
     return error instanceof Error && /duplicate key value/i.test(error.message);
   }
 
+  private assertPurchasingReadAccess(
+    user: RequestUser,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    return this.businessAccessService.assertBusinessRole(
+      user.id,
+      businessId,
+      PURCHASING_READ_ROLES,
+      branchId,
+      'No tienes permiso para consultar compras.',
+    );
+  }
+
+  private assertPurchasingAdminAccess(
+    user: RequestUser,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    return this.businessAccessService.assertBusinessRole(
+      user.id,
+      businessId,
+      PURCHASING_ADMIN_ROLES,
+      branchId,
+      'No tienes permiso para administrar compras.',
+    );
+  }
+
+  private assertPurchasingOperationAccess(
+    user: RequestUser,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    return this.businessAccessService.assertBusinessRole(
+      user.id,
+      businessId,
+      PURCHASING_OPERATION_ROLES,
+      branchId,
+      'No tienes permiso para operar recepciones o movimientos de compra.',
+    );
+  }
+
   private assertPurchaseOrderAccess(
     order: { businessId: string; branchId: string },
     user: RequestUser,
@@ -166,6 +213,7 @@ export class PurchasingService {
         order.businessId,
         order.branchId,
       ),
+      this.assertPurchasingReadAccess(user, order.businessId, order.branchId),
     ]);
   }
 
@@ -190,6 +238,7 @@ export class PurchasingService {
       user.id,
       query.business_id,
     );
+    await this.assertPurchasingReadAccess(user, query.business_id);
 
     const suppliers = await this.purchasingRepository.listSuppliers(
       query.business_id,
@@ -207,6 +256,7 @@ export class PurchasingService {
       user.id,
       input.business_id,
     );
+    await this.assertPurchasingAdminAccess(user, input.business_id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -253,6 +303,7 @@ export class PurchasingService {
       user.id,
       input.business_id,
     );
+    await this.assertPurchasingAdminAccess(user, input.business_id);
 
     const currentSupplier = await this.purchasingRepository.getSupplierById(
       input.business_id,
@@ -315,6 +366,7 @@ export class PurchasingService {
       user.id,
       input.business_id,
     );
+    await this.assertPurchasingAdminAccess(user, input.business_id);
 
     const currentSupplier = await this.purchasingRepository.getSupplierById(
       input.business_id,
@@ -519,6 +571,11 @@ export class PurchasingService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertPurchasingReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     const orders = await this.purchasingRepository.listPurchaseOrders(
       query.business_id,
@@ -597,6 +654,11 @@ export class PurchasingService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertPurchasingAdminAccess(
+      user,
       input.business_id,
       input.branch_id,
     );
@@ -783,6 +845,11 @@ export class PurchasingService {
       input.business_id,
       input.branch_id,
     );
+    await this.assertPurchasingAdminAccess(
+      user,
+      input.business_id,
+      input.branch_id,
+    );
 
     const supplierId = input.supplier_id ?? null;
 
@@ -941,6 +1008,11 @@ export class PurchasingService {
       }
 
       await this.assertPurchaseOrderAccess(order, user);
+      await this.assertPurchasingAdminAccess(
+        user,
+        order.businessId,
+        order.branchId,
+      );
 
       if (order.status !== PurchaseOrderStatus.DRAFT) {
         throw new BadRequestException(
@@ -993,6 +1065,11 @@ export class PurchasingService {
       }
 
       await this.assertPurchaseOrderAccess(order, user);
+      await this.assertPurchasingAdminAccess(
+        user,
+        order.businessId,
+        order.branchId,
+      );
 
       if (order.status === PurchaseOrderStatus.CANCELLED) {
         throw new BadRequestException('La orden ya fue cancelada.');
@@ -1062,6 +1139,11 @@ export class PurchasingService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertPurchasingReadAccess(
+      user,
+      query.business_id,
+      query.branch_id,
+    );
 
     const receipts = await this.purchasingRepository.listGoodsReceipts(
       query.business_id,
@@ -1100,6 +1182,11 @@ export class PurchasingService {
       receipt.businessId,
       receipt.branchId,
     );
+    await this.assertPurchasingReadAccess(
+      user,
+      receipt.businessId,
+      receipt.branchId,
+    );
 
     const items = await this.purchasingRepository.getGoodsReceiptItems(
       goodsReceiptId,
@@ -1116,6 +1203,11 @@ export class PurchasingService {
     );
     await this.businessAccessService.assertBranchAccess(
       user.id,
+      input.business_id,
+      input.branch_id,
+    );
+    await this.assertPurchasingOperationAccess(
+      user,
       input.business_id,
       input.branch_id,
     );

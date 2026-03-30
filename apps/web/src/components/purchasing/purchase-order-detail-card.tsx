@@ -28,10 +28,10 @@ export function PurchaseOrderDetailCard({
   loading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
-  onEdit: () => void;
-  onSubmit: () => void;
-  onCancel: () => void;
-  onReceive: () => void;
+  onEdit?: () => void;
+  onSubmit?: () => void;
+  onCancel?: () => void;
+  onReceive?: () => void;
 }) {
   if (errorMessage) {
     return (
@@ -94,29 +94,49 @@ export function PurchaseOrderDetailCard({
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={onEdit} disabled={!order.canEdit}>
-            Editar borrador
-          </Button>
-          <Button type="button" variant="outline" onClick={onSubmit} disabled={!order.canSubmit}>
-            Enviar orden
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onCancel}
-            disabled={!order.canCancel}
-          >
-            Cancelar orden
-          </Button>
-          <Button
-            type="button"
-            onClick={onReceive}
-            disabled={summary.pendingQuantity <= 0}
-          >
-            Registrar recepcion
-          </Button>
-        </div>
+        {onEdit || onSubmit || onCancel || onReceive ? (
+          <div className="flex flex-wrap gap-2">
+            {onEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onEdit}
+                disabled={!order.canEdit}
+              >
+                Editar borrador
+              </Button>
+            ) : null}
+            {onSubmit ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onSubmit}
+                disabled={!order.canSubmit}
+              >
+                Enviar orden
+              </Button>
+            ) : null}
+            {onCancel ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={onCancel}
+                disabled={!order.canCancel}
+              >
+                Cancelar orden
+              </Button>
+            ) : null}
+            {onReceive ? (
+              <Button
+                type="button"
+                onClick={onReceive}
+                disabled={summary.pendingQuantity <= 0}
+              >
+                Registrar recepcion
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -179,13 +199,7 @@ export function PurchaseOrderDetailCard({
   );
 }
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">

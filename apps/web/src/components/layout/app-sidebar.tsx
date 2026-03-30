@@ -5,12 +5,36 @@ import { usePathname } from "next/navigation";
 import { navigationItems } from "@/config/navigation";
 import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
+import {
+  canAccessCash,
+  canAccessPos,
+  canAccessReports,
+  canReadInventory,
+  canReadPurchasing,
+} from "@/lib/authz";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { business_id, branch_id, register_id } = useCurrentBusiness();
   const contextQuery = useOperatingContext(business_id, branch_id, register_id);
+  const role = contextQuery.data?.user.role ?? null;
+  const visibleItems = navigationItems.filter((item) => {
+    switch (item.access) {
+      case "pos":
+        return canAccessPos(role);
+      case "inventory":
+        return canReadInventory(role);
+      case "purchasing":
+        return canReadPurchasing(role);
+      case "cash":
+        return canAccessCash(role);
+      case "reports":
+        return canAccessReports(role);
+      default:
+        return true;
+    }
+  });
 
   return (
     <aside className="w-full max-w-72 rounded-[1.75rem] border border-white/60 bg-white/70 p-4 shadow-[0_18px_48px_rgba(23,23,23,0.08)] backdrop-blur md:sticky md:top-6 md:h-[calc(100vh-3rem)]">
@@ -27,7 +51,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="space-y-2">
-        {navigationItems.map((item) => {
+        {visibleItems.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
 

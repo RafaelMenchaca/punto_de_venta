@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CASH_OPERATION_ROLES } from '../../common/authz/role-groups';
 import { CashMovementType } from '../../common/enums/cash-movement-type.enum';
 import type { RequestUser } from '../../common/interfaces/request-user.interface';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -48,6 +49,20 @@ export class CashService {
       mixed: roundCurrency(input.mixedTotal),
       store_credit: roundCurrency(input.storeCreditTotal),
     };
+  }
+
+  private assertCashAccess(
+    user: RequestUser,
+    businessId: string,
+    branchId?: string | null,
+  ) {
+    return this.businessAccessService.assertBusinessRole(
+      user.id,
+      businessId,
+      CASH_OPERATION_ROLES,
+      branchId,
+      'No tienes permiso para operar caja.',
+    );
   }
 
   private buildSessionListItem(
@@ -109,6 +124,7 @@ export class CashService {
       query.business_id,
       query.branch_id,
     );
+    await this.assertCashAccess(user, query.business_id, query.branch_id);
     await this.registerValidationService.assertRegisterBelongsToBranch(
       registerId,
       query.branch_id,
@@ -130,6 +146,7 @@ export class CashService {
       input.business_id,
       input.branch_id,
     );
+    await this.assertCashAccess(user, input.business_id, input.branch_id);
     await this.registerValidationService.assertRegisterBelongsToBranch(
       input.register_id,
       input.branch_id,
@@ -205,6 +222,11 @@ export class CashService {
         openSession.businessId,
         openSession.branchId,
       );
+      await this.assertCashAccess(
+        user,
+        openSession.businessId,
+        openSession.branchId,
+      );
 
       const movement = await this.cashRepository.createCashMovement(
         {
@@ -257,6 +279,11 @@ export class CashService {
       summary.session.businessId,
       summary.session.branchId,
     );
+    await this.assertCashAccess(
+      user,
+      summary.session.businessId,
+      summary.session.branchId,
+    );
 
     return summary;
   }
@@ -277,6 +304,7 @@ export class CashService {
       session.businessId,
       session.branchId,
     );
+    await this.assertCashAccess(user, session.businessId, session.branchId);
 
     return this.cashRepository.getCashMovements(cashSessionId);
   }
@@ -293,6 +321,7 @@ export class CashService {
         query.business_id,
         query.branch_id,
       );
+      await this.assertCashAccess(user, query.business_id, query.branch_id);
 
       if (query.register_id) {
         await this.registerValidationService.assertRegisterBelongsToBranch(
@@ -301,6 +330,8 @@ export class CashService {
           query.business_id,
         );
       }
+    } else {
+      await this.assertCashAccess(user, query.business_id);
     }
 
     const sessions = await this.cashRepository.listCashSessions(
@@ -344,6 +375,11 @@ export class CashService {
       );
       await this.businessAccessService.assertBranchAccess(
         user.id,
+        openSession.businessId,
+        openSession.branchId,
+      );
+      await this.assertCashAccess(
+        user,
         openSession.businessId,
         openSession.branchId,
       );
