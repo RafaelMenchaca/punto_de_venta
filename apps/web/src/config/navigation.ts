@@ -2,6 +2,7 @@ import {
   CreditCard,
   LayoutDashboard,
   Package2,
+  PieChart,
   ShoppingCart,
   Wallet,
 } from "lucide-react";
@@ -31,5 +32,10 @@ export const navigationItems = [
     href: "/cash",
     label: "Caja",
     icon: Wallet,
+  },
+  {
+    href: "/reports",
+    label: "Reportes",
+    icon: PieChart,
   },
 ] as const;

@@ -54,6 +54,22 @@ export function CashSessionCard({
             {new Date(session.openedAt).toLocaleString("es-MX")}
           </p>
         </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            Estado
+          </p>
+          <p className="mt-2 font-medium">
+            {session.status === "open" ? "Abierta" : "Cerrada"}
+          </p>
+        </div>
+        {session.notes ? (
+          <div className="md:col-span-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              Notas
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{session.notes}</p>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

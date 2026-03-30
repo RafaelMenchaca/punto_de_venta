@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { PrismaExecutor } from '../../prisma/prisma.types';
+import { buildSaleFolio, getPaymentMethodLabel } from '../sales/sales.utils';
 import {
   type CashMovementRecord,
   type CashSessionDetailRecord,
+  type CashSessionSalePreviewRecord,
   CashRepository,
 } from './cash.repository';
 
@@ -67,6 +69,20 @@ export class CashSessionSummaryService {
     );
   }
 
+  private buildSessionSalesPreview(sales: CashSessionSalePreviewRecord[]) {
+    return sales.map((sale) => ({
+      id: sale.id,
+      folio: buildSaleFolio(sale.id, sale.createdAt),
+      total: roundCurrency(sale.total),
+      customerName: sale.customerName,
+      paymentMethodLabel:
+        sale.paymentMethodsCount > 1
+          ? 'Mixto'
+          : getPaymentMethodLabel(sale.primaryPaymentMethod ?? 'cash'),
+      createdAt: sale.createdAt,
+    }));
+  }
+
   async getSummary(
     cashSessionId: string,
     tx?: PrismaExecutor,
@@ -74,11 +90,20 @@ export class CashSessionSummaryService {
     session: CashSessionDetailRecord;
     totals: {
       sales_total: number;
+      sales_count: number;
       payment_totals: PaymentTotals;
       manual_income_total: number;
       manual_expense_total: number;
       expected_cash: number;
     };
+    sales: Array<{
+      id: string;
+      folio: string;
+      total: number;
+      customerName: string | null;
+      paymentMethodLabel: string;
+      createdAt: Date;
+    }>;
     movements: CashMovementRecord[];
   }> {
     const session = await this.cashRepository.getCashSessionById(
@@ -90,7 +115,7 @@ export class CashSessionSummaryService {
       throw new NotFoundException('La sesion de caja no existe.');
     }
 
-    const salesTotal = await this.cashRepository.getSalesTotal(
+    const salesOverview = await this.cashRepository.getCashSessionSalesOverview(
       cashSessionId,
       tx,
     );
@@ -98,6 +123,11 @@ export class CashSessionSummaryService {
       await this.cashRepository.getPaymentTotalsByMethod(cashSessionId, tx);
     const movements = await this.cashRepository.getCashMovements(
       cashSessionId,
+      tx,
+    );
+    const sales = await this.cashRepository.getCashSessionSalesPreview(
+      cashSessionId,
+      20,
       tx,
     );
 
@@ -113,12 +143,14 @@ export class CashSessionSummaryService {
     return {
       session,
       totals: {
-        sales_total: roundCurrency(salesTotal),
+        sales_total: roundCurrency(salesOverview.salesTotal),
+        sales_count: roundCurrency(salesOverview.salesCount),
         payment_totals: paymentTotals,
         manual_income_total: movementTotals.manualIncomeTotal,
         manual_expense_total: movementTotals.manualExpenseTotal,
         expected_cash: expectedCash,
       },
+      sales: this.buildSessionSalesPreview(sales),
       movements,
     };
   }

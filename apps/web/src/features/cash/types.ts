@@ -21,6 +21,37 @@ export interface CashMovement {
   createdAt: string;
 }
 
+export interface CashSessionListItem {
+  id: string;
+  businessId: string;
+  branchId: string;
+  registerId: string;
+  registerName: string | null;
+  registerCode: string | null;
+  branchName: string | null;
+  openingAmount: number;
+  closingExpected: number | null;
+  closingCounted: number | null;
+  differenceAmount: number | null;
+  status: string;
+  openedByName: string | null;
+  openedAt: string;
+  closedByName: string | null;
+  closedAt: string | null;
+  notes: string | null;
+  salesTotal?: number | null;
+  paymentTotals?: {
+    cash: number;
+    card: number;
+    transfer: number;
+    mixed: number;
+    store_credit: number;
+  } | null;
+  manualIncomeTotal?: number | null;
+  manualExpenseTotal?: number | null;
+  expectedCash?: number | null;
+}
+
 export interface CashSessionSummary {
   session: {
     id: string;
@@ -46,6 +77,7 @@ export interface CashSessionSummary {
   };
   totals: {
     sales_total: number;
+    sales_count?: number;
     payment_totals: {
       cash: number;
       card: number;
@@ -57,6 +89,14 @@ export interface CashSessionSummary {
     manual_expense_total: number;
     expected_cash: number;
   };
+  sales?: Array<{
+    id: string;
+    folio: string;
+    total: number;
+    customerName?: string | null;
+    paymentMethodLabel: string;
+    createdAt: string;
+  }>;
   movements: CashMovement[];
 }
 
@@ -87,4 +127,14 @@ export interface CloseCashSessionSummary {
   difference_amount: number;
   status: string;
   closed_at: string;
+}
+
+export interface CashSessionsListFilters {
+  business_id: string;
+  branch_id?: string;
+  register_id?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
 }

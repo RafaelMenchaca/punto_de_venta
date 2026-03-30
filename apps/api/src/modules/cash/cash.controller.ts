@@ -13,6 +13,7 @@ import { CashService } from './cash.service';
 import { CloseCashSessionDto } from './dto/close-cash-session.dto';
 import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 import { GetOpenCashSessionDto } from './dto/get-open-cash-session.dto';
+import { ListCashSessionsDto } from './dto/list-cash-sessions.dto';
 import { OpenCashSessionDto } from './dto/open-cash-session.dto';
 
 @Controller('cash')
@@ -48,6 +49,14 @@ export class CashController {
     return this.cashService.getCashSessionSummary(cashSessionId, user);
   }
 
+  @Get('sessions/:cashSessionId/movements')
+  getCashSessionMovements(
+    @Param('cashSessionId', new ParseUUIDPipe()) cashSessionId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.cashService.getCashSessionMovements(cashSessionId, user);
+  }
+
   @Post('sessions/:cashSessionId/movements')
   createCashMovement(
     @Param('cashSessionId', new ParseUUIDPipe()) cashSessionId: string,
@@ -55,6 +64,14 @@ export class CashController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.cashService.createCashMovement(cashSessionId, body, user);
+  }
+
+  @Get('sessions')
+  listCashSessions(
+    @Query() query: ListCashSessionsDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.cashService.listCashSessions(query, user);
   }
 
   @Post('sessions/close')

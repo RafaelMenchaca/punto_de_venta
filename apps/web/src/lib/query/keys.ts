@@ -16,6 +16,24 @@ export const queryKeys = {
   ) => ["cash", "open-session", registerId, businessId, branchId] as const,
   cashSessionSummary: (cashSessionId: string | null) =>
     ["cash", "summary", cashSessionId] as const,
+  cashSessionsList: (
+    businessId: string | null,
+    branchId: string | null,
+    registerId: string | null,
+    status: string | null,
+    dateFrom: string,
+    dateTo: string,
+  ) =>
+    [
+      "cash",
+      "sessions",
+      businessId,
+      branchId,
+      registerId,
+      status,
+      dateFrom,
+      dateTo,
+    ] as const,
   defaultInventoryLocation: (
     businessId: string | null,
     branchId: string | null,
@@ -167,4 +185,40 @@ export const queryKeys = {
       branchId,
       locationId,
     ] as const,
+  reportSales: (
+    businessId: string | null,
+    branchId: string | null,
+    registerId: string | null,
+    dateFrom: string,
+    dateTo: string,
+  ) =>
+    [
+      "reports",
+      "sales",
+      businessId,
+      branchId,
+      registerId,
+      dateFrom,
+      dateTo,
+    ] as const,
+  reportCashSessions: (
+    businessId: string | null,
+    branchId: string | null,
+    registerId: string | null,
+    dateFrom: string,
+    dateTo: string,
+  ) =>
+    [
+      "reports",
+      "cash-sessions",
+      businessId,
+      branchId,
+      registerId,
+      dateFrom,
+      dateTo,
+    ] as const,
+  reportInventoryValuation: (
+    businessId: string | null,
+    branchId: string | null,
+  ) => ["reports", "inventory-valuation", businessId, branchId] as const,
 };
