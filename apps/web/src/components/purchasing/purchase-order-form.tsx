@@ -156,8 +156,8 @@ export function PurchaseOrderForm({
     : "Nueva orden de compra";
 
   const description = isEditMode
-    ? "Edita solo borradores o estados seguros. La orden debe quedar clara antes de recibir mercancía."
-    : "Crea un borrador simple para luego recepcionar mercancía parcial o total.";
+    ? "Edita solo borradores o estados seguros. La orden debe quedar clara antes de recibir mercancia."
+    : "Crea un borrador simple para luego recepcionar mercancia parcial o total.";
 
   return (
     <Card
@@ -177,7 +177,7 @@ export function PurchaseOrderForm({
             <Label htmlFor="purchase-order-supplier">Proveedor</Label>
             <select
               id="purchase-order-supplier"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={supplierId}
               onChange={(event) => setSupplierId(event.target.value)}
             >
@@ -221,6 +221,15 @@ export function PurchaseOrderForm({
 
           {searchTerm.trim().length >= 2 && searchQuery.data?.length ? (
             <div className="space-y-2 rounded-2xl border border-border bg-white/60 p-3">
+              <div className="flex items-center justify-between gap-3 px-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Resultados
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery.data.length} producto
+                  {searchQuery.data.length === 1 ? "" : "s"}
+                </p>
+              </div>
               {searchQuery.data.map((product) => (
                 <button
                   key={product.id}

@@ -12,7 +12,10 @@ import { SaleTicketCard } from "@/components/pos/sale-ticket-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { NoticeBanner } from "@/components/shared/notice-banner";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -217,55 +220,87 @@ export default function PosPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Operacion actual</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 text-sm md:grid-cols-4">
-          <MetricCard
-            label="Cajero"
-            value={
-              contextQuery.data?.user.full_name ?? "Resolviendo usuario..."
-            }
-          />
-          <MetricCard
-            label="Caja"
-            value={contextQuery.data?.register?.name ?? "Caja activa"}
-          />
-          <MetricCard
-            label="Sucursal"
-            value={contextQuery.data?.branch?.name ?? "Sucursal actual"}
-          />
-          <MetricCard
-            label="Caja abierta"
-            value={
-              openSession
-                ? `Sesion ${new Date(openSession.openedAt).toLocaleTimeString("es-MX")}`
-                : "Pendiente"
-            }
-          />
-        </CardContent>
-      </Card>
+      <ModuleHeader
+        eyebrow="POS"
+        title="Venta, historial y devoluciones"
+        description="La venta debe sentirse rapida y ordenada. Aqui se concentran la captura del carrito, el cobro y el seguimiento inmediato de tickets sin salir del modulo."
+        actions={
+          activeTab === "sale" && items.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                clearCart();
+                setSaleError(null);
+                toast.success("La venta actual se limpio.");
+              }}
+            >
+              Limpiar venta
+            </Button>
+          ) : undefined
+        }
+      >
+        <MetricCard
+          label="Cajero"
+          value={contextQuery.data?.user.full_name ?? "Resolviendo usuario..."}
+        />
+        <MetricCard
+          label="Caja"
+          value={contextQuery.data?.register?.name ?? "Caja activa"}
+        />
+        <MetricCard
+          label="Sucursal"
+          value={contextQuery.data?.branch?.name ?? "Sucursal actual"}
+        />
+        <MetricCard
+          label="Sesion"
+          value={
+            openSession
+              ? `Abierta ${new Date(openSession.openedAt).toLocaleTimeString("es-MX", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}`
+              : "Pendiente"
+          }
+          tone={openSession ? "positive" : "warning"}
+        />
+      </ModuleHeader>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-white/70 p-2">
-        {posTabs.map((tab) => (
-          <Button
-            key={tab.id}
-            type="button"
-            variant={activeTab === tab.id ? "default" : "outline"}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
+      <SegmentedTabs items={posTabs} value={activeTab} onChange={setActiveTab} />
 
       {activeTab === "sale" ? (
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_420px]">
           <div className="space-y-6">
             {saleTabDisabledMessage ? (
               <NoticeBanner message={saleTabDisabledMessage} />
             ) : null}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <MetricCard
+                label="Lineas activas"
+                value={String(items.length)}
+                helper="Productos listos para cobrar"
+              />
+              <MetricCard
+                label="Cliente"
+                value={selectedCustomer?.fullName ?? "Venta general"}
+                helper={
+                  selectedCustomer
+                    ? "Cliente asociado a la venta actual"
+                    : "Puedes vender sin cliente"
+                }
+              />
+              <MetricCard
+                label="Total actual"
+                value={formatCurrency(totals.total)}
+                helper={
+                  totals.total > 0
+                    ? "Importe listo para cobro"
+                    : "Agrega productos para comenzar"
+                }
+                emphasized
+              />
+            </div>
 
             <CustomerSelector
               businessId={business_id}
@@ -349,7 +384,7 @@ export default function PosPage() {
             ) : null}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
             {saleError ? <ErrorState message={saleError} /> : null}
 
             {lastSale ? (
@@ -530,7 +565,7 @@ export default function PosPage() {
 
                   if (
                     !window.confirm(
-                      "Se cancelara la venta seleccionada y el stock regresara. ¿Deseas continuar?",
+                      "Se cancelara la venta seleccionada y el stock regresara. Deseas continuar?",
                     )
                   ) {
                     return;
@@ -690,15 +725,6 @@ export default function PosPage() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white/60 p-4">
-      <p className="text-muted-foreground">{label}</p>
-      <p className="mt-2 font-semibold">{value}</p>
-    </div>
-  );
-}
-
 function SalesColumn({
   title,
   description,
@@ -726,14 +752,21 @@ function SalesColumn({
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Input
-          placeholder="Buscar folio, cliente o fecha"
-          value={searchTerm}
-          onChange={(event) => onSearchChange(event.target.value)}
-        />
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+          <Input
+            placeholder="Buscar folio, cliente o fecha"
+            value={searchTerm}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+          <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+            {sales.length} resultado{sales.length === 1 ? "" : "s"}
+          </div>
+        </div>
         {errorMessage ? (
           <ErrorState
             message={errorMessage}
@@ -756,18 +789,26 @@ function SalesColumn({
               className={`w-full rounded-2xl border p-4 text-left ${
                 selectedSaleId === sale.id
                   ? "border-primary/40 bg-white shadow-[0_0_0_3px_rgba(15,118,110,0.08)]"
-                  : "border-border bg-white/70"
+                  : "border-border bg-white/70 hover:bg-white"
               }`}
               onClick={() => onSelectSale(sale.id)}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{sale.folio}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {sale.customerName ?? "Publico general"}
                   </p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    {new Date(sale.createdAt).toLocaleDateString("es-MX")}
+                  </p>
                 </div>
-                <p className="font-semibold">{formatCurrency(sale.netTotal)}</p>
+                <div className="text-right">
+                  <p className="font-semibold">{formatCurrency(sale.netTotal)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {sale.paymentSummary.label}
+                  </p>
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge
@@ -782,7 +823,6 @@ function SalesColumn({
                 >
                   {getSaleStatusLabel(sale.status)}
                 </Badge>
-                <Badge>{sale.paymentSummary.label}</Badge>
               </div>
             </button>
           ))}

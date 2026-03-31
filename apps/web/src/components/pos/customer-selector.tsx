@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -76,18 +77,21 @@ export function CustomerSelector({
       <CardHeader>
         <CardTitle>Cliente</CardTitle>
         <CardDescription>
-          La venta puede hacerse sin cliente, pero aqui puedes asociarlo o darlo
-          de alta rapido.
+          La venta puede hacerse sin cliente, pero aqui puedes asociarlo o
+          darlo de alta sin salir del POS.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-2xl bg-muted/60 p-4">
+        <div className="rounded-[1.4rem] border border-border/80 bg-muted/55 p-4">
           {selectedCustomer ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                  Cliente seleccionado
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                    Cliente seleccionado
+                  </p>
+                  <Badge variant="success">Listo para cobrar</Badge>
+                </div>
                 <p className="font-semibold">{selectedCustomer.fullName}</p>
                 <p className="text-sm text-muted-foreground">
                   {[selectedCustomer.phone, selectedCustomer.email]
@@ -106,6 +110,9 @@ export function CustomerSelector({
                 Venta sin cliente
               </p>
               <p className="font-medium">No hay cliente asociado por ahora.</p>
+              <p className="text-sm text-muted-foreground">
+                Puedes continuar asi o seleccionar uno para dejar mejor trazabilidad.
+              </p>
             </div>
           )}
         </div>
@@ -121,7 +128,7 @@ export function CustomerSelector({
             variant={showCreateForm ? "secondary" : "outline"}
             onClick={() => setShowCreateForm((current) => !current)}
           >
-            {showCreateForm ? "Cerrar alta" : "Crear cliente"}
+            {showCreateForm ? "Ocultar alta" : "Nuevo cliente"}
           </Button>
         </div>
 
@@ -151,10 +158,19 @@ export function CustomerSelector({
 
         {customerResults.length > 0 ? (
           <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Resultados
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {customerResults.length} resultado
+                {customerResults.length === 1 ? "" : "s"}
+              </p>
+            </div>
             {customerResults.map((customer) => (
               <div
                 key={customer.id}
-                className="flex flex-col gap-3 rounded-2xl border border-border bg-white/70 p-4 lg:flex-row lg:items-center lg:justify-between"
+                className="flex flex-col gap-3 rounded-[1.35rem] border border-border/80 bg-white/72 p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)] lg:flex-row lg:items-center lg:justify-between"
               >
                 <div>
                   <p className="font-medium">{customer.fullName}</p>
@@ -179,7 +195,7 @@ export function CustomerSelector({
 
         {showCreateForm ? (
           <form
-            className="space-y-3 rounded-2xl border border-border bg-white/70 p-4"
+            className="space-y-4 rounded-[1.45rem] border border-border/80 bg-white/72 p-5 shadow-[0_12px_24px_rgba(23,23,23,0.05)]"
             onSubmit={(event) => {
               event.preventDefault();
 
@@ -213,6 +229,14 @@ export function CustomerSelector({
                 });
             }}
           >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Alta rapida
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Captura solo los datos minimos para continuar la venta.
+              </p>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               <Input
                 placeholder="Nombre completo"

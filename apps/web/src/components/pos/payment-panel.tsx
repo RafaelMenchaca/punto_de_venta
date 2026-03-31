@@ -70,24 +70,58 @@ export function PaymentPanel({
       <CardHeader>
         <CardTitle>Cobro</CardTitle>
         <CardDescription>
-          Divide el pago en varios metodos si hace falta. El cambio solo se
-          calcula sobre efectivo.
+          Divide el pago en varios metodos si hace falta. El cambio solo se calcula sobre efectivo.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
+        <div className="grid gap-3 rounded-[1.4rem] bg-muted/75 p-4 md:grid-cols-3">
+          <PaymentMetric label="Total" value={formatCurrency(total)} />
+          <PaymentMetric label="Recibido" value={formatCurrency(receivedTotal)} />
+          <PaymentMetric
+            label={
+              hasUnsupportedChange
+                ? "Excedente"
+                : change > 0
+                  ? "Cambio"
+                  : paymentDifference > 0
+                    ? "Falta"
+                    : "Cobro exacto"
+            }
+            value={
+              hasUnsupportedChange
+                ? formatCurrency(Math.max(receivedTotal - total, 0))
+                : change > 0
+                  ? formatCurrency(change)
+                  : paymentDifference > 0
+                    ? formatCurrency(paymentDifference)
+                    : formatCurrency(0)
+            }
+            emphasized={
+              !hasUnsupportedChange && change <= 0 && paymentDifference <= 0
+            }
+          />
+        </div>
+
         <div className="space-y-3">
           {payments.map((payment, index) => (
             <div
               key={payment.id}
-              className="grid gap-3 rounded-2xl border border-border bg-white/70 p-4 md:grid-cols-[0.9fr_0.8fr_0.8fr_auto]"
+              className="grid gap-4 rounded-[1.4rem] border border-border bg-white/72 p-4 md:grid-cols-[0.9fr_0.8fr_0.8fr_auto]"
             >
               <div className="space-y-2">
-                <Label htmlFor={`payment-method-${payment.id}`}>
-                  Metodo {index + 1}
-                </Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`payment-method-${payment.id}`}>
+                    Metodo {index + 1}
+                  </Label>
+                  <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    {payment.payment_method === "cash"
+                      ? "Admite cambio"
+                      : "Cobro exacto"}
+                  </span>
+                </div>
                 <select
                   id={`payment-method-${payment.id}`}
-                  className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="ui-select"
                   value={payment.payment_method}
                   onChange={(event) =>
                     onUpdatePayment(payment.id, {
@@ -162,39 +196,10 @@ export function PaymentPanel({
           </Button>
         </div>
 
-        <div className="grid gap-3 rounded-2xl bg-muted/70 p-4 text-sm md:grid-cols-3">
-          <PaymentMetric label="Total" value={formatCurrency(total)} />
-          <PaymentMetric
-            label="Recibido"
-            value={formatCurrency(receivedTotal)}
-          />
-          <PaymentMetric
-            label={
-              hasUnsupportedChange
-                ? "Excedente"
-                : change > 0
-                ? "Cambio"
-                : paymentDifference > 0
-                  ? "Falta"
-                  : "Cobro exacto"
-            }
-            value={
-              hasUnsupportedChange
-                ? formatCurrency(Math.max(receivedTotal - total, 0))
-                : change > 0
-                ? formatCurrency(change)
-                : paymentDifference > 0
-                  ? formatCurrency(paymentDifference)
-                  : formatCurrency(0)
-            }
-            emphasized={
-              !hasUnsupportedChange && change <= 0 && paymentDifference <= 0
-            }
-          />
-        </div>
-
         {helperMessage ? (
-          <p className="text-sm text-muted-foreground">{helperMessage}</p>
+          <div className="rounded-[1.2rem] border border-dashed border-border bg-white/60 px-4 py-3 text-sm text-muted-foreground">
+            {helperMessage}
+          </div>
         ) : null}
 
         <div className="space-y-2">
@@ -212,7 +217,7 @@ export function PaymentPanel({
           disabled={!canSubmit || loading}
           onClick={() => void onSubmit()}
         >
-          {loading ? "Finalizando..." : "Finalizar venta"}
+          {loading ? "Finalizando..." : "Cobrar y cerrar venta"}
         </Button>
       </CardContent>
     </Card>

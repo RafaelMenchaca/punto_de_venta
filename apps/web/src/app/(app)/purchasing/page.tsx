@@ -5,9 +5,11 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { NoticeBanner } from "@/components/shared/notice-banner";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useOperatingContext } from "@/features/context/hooks";
@@ -196,6 +198,14 @@ export default function PurchasingPage() {
       ),
     [receiptSearchTerm, receipts],
   );
+  const pendingOrdersCount = useMemo(
+    () => orders.filter((order) => order.pendingQuantity > 0).length,
+    [orders],
+  );
+  const activeSuppliersCount = useMemo(
+    () => suppliers.filter((supplier) => supplier.isActive).length,
+    [suppliers],
+  );
 
   useEffect(
     () => () => {
@@ -288,44 +298,37 @@ export default function PurchasingPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Operacion actual</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Negocio"
-            value={
-              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
-            }
-          />
-          <MetricCard
-            label="Sucursal"
-            value={contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
-          />
-          <MetricCard
-            label="Ubicaciones"
-            value={
-              inventoryCatalogsQuery.data?.locations.length
-                ? `${inventoryCatalogsQuery.data.locations.length} disponibles`
-                : "Pendiente"
-            }
-          />
-        </CardContent>
-      </Card>
+      <ModuleHeader
+        eyebrow="Compras"
+        title="Ordenes, recepciones y proveedores"
+        description="Este modulo concentra el flujo de abastecimiento con mejor separacion visual entre borradores, recepciones y catalogo de proveedores."
+      >
+        <MetricCard
+          label="Negocio"
+          value={contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
+        />
+        <MetricCard
+          label="Sucursal"
+          value={contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
+        />
+        <MetricCard
+          label="Ordenes con pendiente"
+          value={String(pendingOrdersCount)}
+          helper="Ordenes listas para recibir"
+          tone={pendingOrdersCount > 0 ? "warning" : "neutral"}
+        />
+        <MetricCard
+          label="Proveedores activos"
+          value={String(activeSuppliersCount)}
+          helper={
+            inventoryCatalogsQuery.data?.locations.length
+              ? `${inventoryCatalogsQuery.data.locations.length} ubicaciones disponibles`
+              : "Ubicaciones pendientes"
+          }
+        />
+      </ModuleHeader>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-white/70 p-2">
-        {tabs.map((tab) => (
-          <Button
-            key={tab.id}
-            type="button"
-            variant={resolvedActiveTab === tab.id ? "default" : "outline"}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
+      <SegmentedTabs items={tabs} value={resolvedActiveTab} onChange={setActiveTab} />
 
       {resolvedActiveTab === "orders" ? (
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -805,17 +808,6 @@ export default function PurchasingPage() {
           </div>
         )
       ) : null}
-    </div>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white/60 p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-medium">{value}</p>
     </div>
   );
 }

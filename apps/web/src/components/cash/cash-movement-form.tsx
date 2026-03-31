@@ -41,11 +41,15 @@ export function CashMovementForm({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="rounded-[1.25rem] border border-dashed border-border bg-white/60 px-4 py-3 text-sm text-muted-foreground">
+          Usa ingresos para dinero que entra directamente a caja y retiros para salidas manuales del turno.
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="movement-type">Tipo de movimiento</Label>
           <select
             id="movement-type"
-            className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="ui-select"
             value={movementType}
             onChange={(event) =>
               setMovementType(event.target.value as "income" | "expense")

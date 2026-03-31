@@ -34,7 +34,7 @@ export function CashMovementList({
           return (
             <div
               key={movement.id}
-              className="rounded-2xl border border-border bg-white/60 p-4"
+              className="rounded-[1.35rem] border border-border bg-white/72 p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>

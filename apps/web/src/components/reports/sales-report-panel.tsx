@@ -60,7 +60,7 @@ export function SalesReportPanel({
           <div className="space-y-2">
             <label className="text-sm font-medium">Alcance</label>
             <select
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm"
+              className="ui-select"
               value={scope}
               onChange={(event) =>
                 setScope(event.target.value as "branch" | "register")
@@ -197,17 +197,21 @@ export function SalesReportPanel({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Ventas del periodo</CardTitle>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ventas del periodo</CardTitle>
                 <CardDescription>
                   Lista resumida de ventas recientes del reporte.
                 </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {reportQuery.data.items.length === 0 ? (
-                  <EmptyState
-                    title="Sin ventas"
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+                {reportQuery.data.items.length} venta
+                {reportQuery.data.items.length === 1 ? "" : "s"} en el rango seleccionado
+              </div>
+              {reportQuery.data.items.length === 0 ? (
+                <EmptyState
+                  title="Sin ventas"
                     description="No hay ventas en el rango seleccionado."
                   />
                 ) : null}

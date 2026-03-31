@@ -96,11 +96,17 @@ export function SupplierManager({
           <CardTitle>Proveedores</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            placeholder="Buscar proveedor por nombre, contacto, correo o telefono"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <Input
+              placeholder="Buscar proveedor por nombre, contacto, correo o telefono"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+            <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+              {filteredSuppliers.length} proveedor
+              {filteredSuppliers.length === 1 ? "" : "es"}
+            </div>
+          </div>
 
           <div className="space-y-3">
             {filteredSuppliers.length === 0 ? (
@@ -121,7 +127,7 @@ export function SupplierManager({
                 <div
                   key={supplier.id}
                   className={cn(
-                    "rounded-2xl border p-4",
+                    "rounded-[1.35rem] border p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)]",
                     supplier.isActive
                       ? "border-border bg-white/60"
                       : "border-dashed border-slate-300 bg-slate-100/70 text-slate-700",

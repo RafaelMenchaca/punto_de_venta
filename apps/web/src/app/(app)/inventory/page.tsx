@@ -14,7 +14,10 @@ import { StockLevelCard } from "@/components/inventory/stock-level-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { NoticeBanner } from "@/components/shared/notice-banner";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +28,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useOperatingContext } from "@/features/context/hooks";
 import {
   formatInventoryQuantity,
@@ -174,6 +185,23 @@ export default function InventoryPage() {
   const selectedProduct =
     productsQuery.data?.find((product) => product.id === selectedProductId) ??
     null;
+  const productMetrics = useMemo(() => {
+    const items = filteredProducts;
+    const activeCount = items.filter((product) => product.isActive).length;
+    const inactiveCount = items.length - activeCount;
+    const lowStockCount = items.filter(
+      (product) =>
+        product.trackInventory &&
+        product.availableStock <= Math.max(product.minStock, 0),
+    ).length;
+
+    return {
+      total: items.length,
+      activeCount,
+      inactiveCount,
+      lowStockCount,
+    };
+  }, [filteredProducts]);
 
   useEffect(
     () => () => {
@@ -249,43 +277,37 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Operacion actual</CardTitle>
-          <CardDescription>
-            El inventario se administra dentro del negocio y sucursal activos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Negocio"
-            value={
-              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
-            }
-          />
-          <MetricCard
-            label="Sucursal"
-            value={contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
-          />
-          <MetricCard
-            label="Ubicacion default"
-            value={defaultLocationQuery.data?.name ?? "Pendiente"}
-          />
-        </CardContent>
-      </Card>
+      <ModuleHeader
+        eyebrow="Inventario"
+        title="Catalogo, stock y control operativo"
+        description="Administra articulos, entradas, ubicaciones, transferencias y alertas con una vista mas clara entre consulta, captura y seguimiento."
+      >
+        <MetricCard
+          label="Negocio"
+          value={
+            contextQuery.data?.business?.name ?? "Resolviendo negocio..."
+          }
+        />
+        <MetricCard
+          label="Sucursal"
+          value={contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
+        />
+        <MetricCard
+          label="Ubicacion default"
+          value={defaultLocationQuery.data?.name ?? "Pendiente"}
+        />
+        <MetricCard
+          label="Modo"
+          value={canMutateInventory ? "Operacion completa" : "Solo lectura"}
+          tone={canMutateInventory ? "positive" : "warning"}
+        />
+      </ModuleHeader>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-white/70 p-2">
-        {inventoryTabs.map((tab) => (
-          <Button
-            key={tab.id}
-            type="button"
-            variant={resolvedActiveTab === tab.id ? "default" : "outline"}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
+      <SegmentedTabs
+        items={inventoryTabs}
+        value={resolvedActiveTab}
+        onChange={setActiveTab}
+      />
 
       {resolvedActiveTab === "articles" ? (
         <div className="space-y-6">
@@ -301,6 +323,29 @@ export default function InventoryPage() {
               {!canMutateInventory ? (
                 <NoticeBanner message="Estas viendo inventario en modo solo lectura." />
               ) : null}
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard
+                  label="Visibles"
+                  value={String(productMetrics.total)}
+                  helper="Resultados del filtro actual"
+                />
+                <MetricCard
+                  label="Activos"
+                  value={String(productMetrics.activeCount)}
+                  tone="positive"
+                />
+                <MetricCard
+                  label="Inactivos"
+                  value={String(productMetrics.inactiveCount)}
+                  tone={productMetrics.inactiveCount > 0 ? "warning" : "neutral"}
+                />
+                <MetricCard
+                  label="Stock bajo"
+                  value={String(productMetrics.lowStockCount)}
+                  tone={productMetrics.lowStockCount > 0 ? "warning" : "neutral"}
+                />
+              </div>
               <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
                 <Input
                   value={searchTerm}
@@ -357,145 +402,194 @@ export default function InventoryPage() {
                 />
               ) : null}
 
-              <div className="space-y-3">
-                {filteredProducts.map((product) => {
-                  const deactivateLoading =
-                    deactivateProductMutation.isPending &&
-                    deactivateProductMutation.variables?.productId ===
-                      product.id;
-                  const reactivateLoading =
-                    reactivateProductMutation.isPending &&
-                    reactivateProductMutation.variables?.productId ===
-                      product.id;
-                  const lowStock =
-                    product.trackInventory &&
-                    product.availableStock <= product.minStock;
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Articulo</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Marca</TableHead>
+                    <TableHead>Tasa</TableHead>
+                    <TableHead className="text-right">Precio</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((product) => {
+                    const deactivateLoading =
+                      deactivateProductMutation.isPending &&
+                      deactivateProductMutation.variables?.productId ===
+                        product.id;
+                    const reactivateLoading =
+                      reactivateProductMutation.isPending &&
+                      reactivateProductMutation.variables?.productId ===
+                        product.id;
+                    const lowStock =
+                      product.trackInventory &&
+                      product.availableStock <= product.minStock;
+                    const outOfStock =
+                      product.trackInventory && product.availableStock <= 0;
 
-                  return (
-                    <div
-                      key={product.id}
-                      className={`rounded-2xl border p-4 ${
-                        selectedProductId === product.id
-                          ? "border-primary/40 bg-white shadow-[0_0_0_3px_rgba(15,118,110,0.08)]"
-                          : "border-border bg-white/60"
-                      } ${product.isActive ? "" : "bg-slate-100/70 text-slate-700"}`}
-                    >
-                      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr_0.9fr_0.9fr_0.8fr_auto]">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-semibold">{product.name}</p>
-                            <Badge
-                              variant={
-                                product.isActive ? "success" : "destructive"
-                              }
-                            >
-                              {product.isActive ? "Activo" : "Inactivo"}
-                            </Badge>
-                            {lowStock ? (
-                              <Badge variant="warning">Stock bajo</Badge>
-                            ) : null}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            SKU: {product.sku ?? "sin SKU"} | Barcode:{" "}
-                            {product.barcode ?? "sin barcode"}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {product.categoryName ?? "Sin categoria"} |{" "}
-                            {product.brandName ?? "Sin marca"}
-                          </p>
-                        </div>
-
-                        <InfoCell
-                          label="Tasa"
-                          value={
-                            product.taxRateName
-                              ? `${product.taxRateName} (${product.taxRate}%)`
-                              : "Sin tasa"
-                          }
-                        />
-                        <InfoCell
-                          label="Precio"
-                          value={formatCurrency(product.unitPrice)}
-                        />
-                        <InfoCell
-                          label="Stock"
-                          value={`${formatInventoryQuantity(product.availableStock)} uds`}
-                        />
-                        <InfoCell
-                          label="Costo"
-                          value={formatCurrency(product.costPrice)}
-                        />
-
-                        <div className="flex flex-wrap items-start justify-end gap-2">
-                          <Button
+                    return (
+                      <TableRow
+                        key={product.id}
+                        className={
+                          selectedProductId === product.id
+                            ? "bg-primary/5 hover:bg-primary/5"
+                            : undefined
+                        }
+                      >
+                        <TableCell>
+                          <button
                             type="button"
-                            variant="outline"
+                            className="text-left"
                             onClick={() => setSelectedProductId(product.id)}
                           >
-                            Ver stock y movimientos
-                          </Button>
-                          {canMutateInventory ? (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => handleStartEditing(product)}
-                              >
-                                Editar
-                              </Button>
-                              <Button
-                                type="button"
+                            <p className="font-semibold">{product.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              SKU: {product.sku ?? "sin SKU"}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Barcode: {product.barcode ?? "sin barcode"}
+                            </p>
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {product.categoryName ?? "Sin categoria"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {product.brandName ?? "Sin marca"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {product.taxRateName
+                            ? `${product.taxRateName} (${product.taxRate}%)`
+                            : "Sin tasa"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {formatCurrency(product.unitPrice)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="space-y-2">
+                            <p className="font-semibold">
+                              {formatInventoryQuantity(product.availableStock)} uds
+                            </p>
+                            {product.trackInventory ? (
+                              <Badge
                                 variant={
-                                  product.isActive ? "destructive" : "default"
+                                  outOfStock
+                                    ? "destructive"
+                                    : lowStock
+                                      ? "warning"
+                                      : "success"
                                 }
-                                disabled={
-                                  deactivateLoading || reactivateLoading
-                                }
-                                onClick={async () => {
-                                  try {
-                                    if (product.isActive) {
-                                      await deactivateProductMutation.mutateAsync(
-                                        {
-                                          productId: product.id,
-                                          payload: { business_id },
-                                        },
-                                      );
-                                      toast.success("Articulo desactivado.");
-                                    } else {
-                                      await reactivateProductMutation.mutateAsync(
-                                        {
-                                          productId: product.id,
-                                          payload: { business_id },
-                                        },
-                                      );
-                                      toast.success("Articulo reactivado.");
-                                    }
-                                  } catch (error) {
-                                    toast.error(
-                                      getFriendlyErrorMessage(
-                                        error,
-                                        product.isActive
-                                          ? "No se pudo desactivar el articulo."
-                                          : "No se pudo reactivar el articulo.",
-                                      ),
-                                    );
-                                  }
-                                }}
+                                className="justify-center"
                               >
-                                {deactivateLoading || reactivateLoading
-                                  ? "Guardando..."
-                                  : product.isActive
-                                    ? "Desactivar"
-                                    : "Reactivar"}
-                              </Button>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                                {outOfStock
+                                  ? "Critico"
+                                  : lowStock
+                                    ? "Bajo"
+                                    : "Normal"}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                Sin control
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              product.isActive ? "success" : "destructive"
+                            }
+                          >
+                            {product.isActive ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedProductId(product.id);
+                              }}
+                            >
+                              Ver detalle
+                            </Button>
+                            {canMutateInventory ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleStartEditing(product);
+                                  }}
+                                >
+                                  Editar
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={
+                                    product.isActive ? "destructive" : "default"
+                                  }
+                                  disabled={
+                                    deactivateLoading || reactivateLoading
+                                  }
+                                  onClick={async (event) => {
+                                    event.stopPropagation();
+
+                                    try {
+                                      if (product.isActive) {
+                                        await deactivateProductMutation.mutateAsync(
+                                          {
+                                            productId: product.id,
+                                            payload: { business_id },
+                                          },
+                                        );
+                                        toast.success("Articulo desactivado.");
+                                      } else {
+                                        await reactivateProductMutation.mutateAsync(
+                                          {
+                                            productId: product.id,
+                                            payload: { business_id },
+                                          },
+                                        );
+                                        toast.success("Articulo reactivado.");
+                                      }
+                                    } catch (error) {
+                                      toast.error(
+                                        getFriendlyErrorMessage(
+                                          error,
+                                          product.isActive
+                                            ? "No se pudo desactivar el articulo."
+                                            : "No se pudo reactivar el articulo.",
+                                        ),
+                                      );
+                                    }
+                                  }}
+                                >
+                                  {deactivateLoading || reactivateLoading
+                                    ? "Guardando..."
+                                    : product.isActive
+                                      ? "Desactivar"
+                                      : "Reactivar"}
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -853,28 +947,6 @@ export default function InventoryPage() {
           />
         )
       ) : null}
-    </div>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white/60 p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-medium">{value}</p>
-    </div>
-  );
-}
-
-function InfoCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 text-sm font-medium">{value}</p>
     </div>
   );
 }

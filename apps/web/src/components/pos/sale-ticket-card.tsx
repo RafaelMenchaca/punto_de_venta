@@ -39,6 +39,29 @@ export function SaleTicketCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-6 text-sm">
+        <div className="rounded-[1.5rem] bg-primary px-5 py-5 text-primary-foreground shadow-[0_18px_34px_rgba(15,118,110,0.18)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-foreground/70">
+            Total neto
+          </p>
+          <p className="mt-3 text-4xl font-semibold tracking-tight">
+            {formatCurrency(sale.sale.netTotal)}
+          </p>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <TicketHeroMetric
+              label="Subtotal"
+              value={formatCurrency(sale.sale.subtotal)}
+            />
+            <TicketHeroMetric
+              label="Impuestos"
+              value={formatCurrency(sale.sale.taxTotal)}
+            />
+            <TicketHeroMetric
+              label="Descuentos"
+              value={formatCurrency(sale.sale.discountTotal)}
+            />
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <TicketMetric label="Folio" value={sale.sale.folio} />
           <TicketMetric
@@ -166,6 +189,25 @@ export function SaleTicketCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function TicketHeroMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/10 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/70">
+        {label}
+      </p>
+      <p className="mt-2 text-base font-semibold text-primary-foreground">
+        {value}
+      </p>
+    </div>
   );
 }
 

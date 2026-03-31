@@ -72,11 +72,27 @@ export function RefundForm({
           Selecciona cantidades validas de la venta {sale.sale.folio}.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
+        <div className="grid gap-4 md:grid-cols-3">
+          <RefundMetric
+            label="Items disponibles"
+            value={String(refundableItems.length)}
+          />
+          <RefundMetric
+            label="Seleccionados"
+            value={String(selectedItems.length)}
+          />
+          <RefundMetric
+            label="Reembolso estimado"
+            value={formatCurrency(refundTotal)}
+            emphasized
+          />
+        </div>
+
         {refundableItems.map((item) => (
           <div
             key={item.id}
-            className="grid gap-3 rounded-2xl border border-border bg-white/70 p-4 md:grid-cols-[1.5fr_140px_140px_1fr]"
+            className="grid gap-3 rounded-[1.4rem] border border-border bg-white/72 p-4 md:grid-cols-[1.5fr_140px_140px_1fr]"
           >
             <div>
               <p className="font-medium">{item.productName}</p>
@@ -149,5 +165,26 @@ export function RefundForm({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RefundMetric({
+  label,
+  value,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-border bg-white/72 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+        {label}
+      </p>
+      <p className={`mt-3 ${emphasized ? "text-2xl font-semibold" : "text-lg font-semibold"}`}>
+        {value}
+      </p>
+    </div>
   );
 }

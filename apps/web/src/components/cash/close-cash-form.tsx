@@ -76,16 +76,35 @@ export function CloseCashForm({
       <CardHeader>
         <CardTitle>Cerrar caja</CardTitle>
         <CardDescription>
-          Captura el efectivo contado y revisa la diferencia antes de cerrar.
-          No tiene que coincidir exactamente para permitir el cierre.
+          Captura el efectivo contado y revisa la diferencia antes de cerrar. No tiene que coincidir exactamente para permitir el cierre.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-2xl border border-border bg-white/60 p-4">
-          <p className="text-sm text-muted-foreground">Efectivo esperado</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {formatCurrency(expectedCash)}
-          </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-[1.35rem] border border-border bg-white/72 p-4">
+            <p className="text-sm text-muted-foreground">Efectivo esperado</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {formatCurrency(expectedCash)}
+            </p>
+          </div>
+
+          <div className="rounded-[1.35rem] border border-border bg-white/72 p-4">
+            <p className="text-sm text-muted-foreground">Diferencia actual</p>
+            <p
+              className={`mt-2 text-2xl font-semibold ${
+                difference < 0
+                  ? "text-red-700"
+                  : difference > 0
+                    ? "text-emerald-700"
+                    : ""
+              }`}
+            >
+              {formatCurrency(difference)}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Se recalcula en cuanto cambias el contado.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -98,25 +117,6 @@ export function CloseCashForm({
             value={closingCounted}
             onChange={(event) => setClosingCounted(event.target.value)}
           />
-        </div>
-
-        <div className="rounded-2xl border border-border bg-white/60 p-4">
-          <p className="text-sm text-muted-foreground">Diferencia</p>
-          <p
-            className={`mt-2 text-xl font-semibold ${
-              difference < 0
-                ? "text-red-700"
-                : difference > 0
-                  ? "text-emerald-700"
-                  : ""
-            }`}
-          >
-            {formatCurrency(difference)}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Puedes cerrar con sobrante o faltante y dejar la nota
-            correspondiente.
-          </p>
         </div>
 
         <div className="space-y-2">

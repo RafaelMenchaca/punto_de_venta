@@ -209,11 +209,17 @@ export function InventoryLocationManager({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Buscar por nombre o codigo"
-          />
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar por nombre o codigo"
+            />
+            <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+              {filteredLocations.length} ubicacion
+              {filteredLocations.length === 1 ? "" : "es"}
+            </div>
+          </div>
 
           {loading ? (
             <NoticeBanner message="Actualizando ubicaciones..." />

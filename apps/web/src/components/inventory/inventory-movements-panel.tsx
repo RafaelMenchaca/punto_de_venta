@@ -115,7 +115,7 @@ export function InventoryMovementsPanel({
           </div>
 
           <select
-            className="h-10 rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="ui-select"
             value={locationId}
             onChange={(event) => setLocationId(event.target.value)}
           >
@@ -129,7 +129,7 @@ export function InventoryMovementsPanel({
           </select>
 
           <select
-            className="h-10 rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="ui-select"
             value={movementType}
             onChange={(event) => setMovementType(event.target.value)}
           >
@@ -142,7 +142,13 @@ export function InventoryMovementsPanel({
         </div>
 
         {selectedProduct ? (
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-border bg-white/70 px-4 py-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Filtro activo
+              </p>
+              <p className="mt-1 font-medium">{selectedProduct.name}</p>
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -186,6 +192,13 @@ export function InventoryMovementsPanel({
             title="Sin movimientos"
             description="No hay movimientos que coincidan con los filtros actuales."
           />
+        ) : null}
+
+        {movementsQuery.data?.length ? (
+          <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+            {movementsQuery.data.length} movimiento
+            {movementsQuery.data.length === 1 ? "" : "s"} segun los filtros actuales
+          </div>
         ) : null}
 
         <div className="space-y-3">

@@ -171,7 +171,7 @@ export function InventoryTransferForm({
             <Label htmlFor="transfer-from-location">Origen</Label>
             <select
               id="transfer-from-location"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={fromLocationId}
               onChange={(event) => setFromLocationId(event.target.value)}
             >
@@ -191,7 +191,7 @@ export function InventoryTransferForm({
             <Label htmlFor="transfer-to-location">Destino</Label>
             <select
               id="transfer-to-location"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={toLocationId}
               onChange={(event) => setToLocationId(event.target.value)}
             >

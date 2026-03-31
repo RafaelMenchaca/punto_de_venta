@@ -122,7 +122,7 @@ export function GoodsReceiptForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recepcion de mercancía</CardTitle>
+        <CardTitle>Recepcion de mercancia</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         {!order ? (
@@ -151,7 +151,7 @@ export function GoodsReceiptForm({
                 <Label htmlFor="receipt-location">Ubicacion</Label>
                 <select
                   id="receipt-location"
-                  className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="ui-select"
                   value={selectedLocationId}
                   disabled={readOnly}
                   onChange={(event) => setLocationId(event.target.value)}
@@ -165,6 +165,21 @@ export function GoodsReceiptForm({
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="grid gap-3 rounded-[1.35rem] bg-muted/70 p-4 text-sm md:grid-cols-3">
+              <Metric
+                label="Lineas pendientes"
+                value={String(lines.length)}
+              />
+              <Metric
+                label="Cantidad prevista"
+                value={String(totals.quantity)}
+              />
+              <Metric
+                label="Valor estimado"
+                value={formatCurrency(totals.total)}
+              />
             </div>
 
             <div className="space-y-3">
@@ -251,17 +266,6 @@ export function GoodsReceiptForm({
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div className="grid gap-3 rounded-2xl bg-muted/70 p-4 text-sm md:grid-cols-2">
-              <Metric
-                label="Cantidad recibida"
-                value={String(totals.quantity)}
-              />
-              <Metric
-                label="Valor estimado"
-                value={formatCurrency(totals.total)}
-              />
             </div>
 
             <div className="space-y-2">

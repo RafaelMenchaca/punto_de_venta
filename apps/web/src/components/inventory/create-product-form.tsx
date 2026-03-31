@@ -210,7 +210,7 @@ export function CreateProductForm({
           <Field label="Categoria" htmlFor="product-category">
             <select
               id="product-category"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={values.category_id}
               onChange={(event) =>
                 setValues((current) => ({
@@ -231,7 +231,7 @@ export function CreateProductForm({
           <Field label="Marca" htmlFor="product-brand">
             <select
               id="product-brand"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={values.brand_id}
               onChange={(event) =>
                 setValues((current) => ({
@@ -252,7 +252,7 @@ export function CreateProductForm({
           <Field label="Tasa / impuesto" htmlFor="product-tax-rate">
             <select
               id="product-tax-rate"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={values.tax_rate_id}
               onChange={(event) =>
                 setValues((current) => ({
@@ -413,7 +413,7 @@ export function CreateProductForm({
             <Field label="Ubicacion inicial" htmlFor="product-location">
               <select
                 id="product-location"
-                className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="ui-select"
                 value={values.location_id}
                 onChange={(event) =>
                   setValues((current) => ({
