@@ -77,6 +77,14 @@ export function InventoryAlertsPanel({
           />
         ) : null}
 
+        {alertsQuery.data?.length ? (
+          <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+            {alertsQuery.data.length} alerta
+            {alertsQuery.data.length === 1 ? "" : "s"} activa
+            {alertsQuery.data.length === 1 ? "" : "s"} detectada
+          </div>
+        ) : null}
+
         <div className="space-y-3">
           {alertsQuery.data?.map((alert) => {
             const resolving =

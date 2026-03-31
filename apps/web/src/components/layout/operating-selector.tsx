@@ -77,10 +77,10 @@ export function OperatingSelector() {
 
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        <span>Negocio</span>
+      <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+        <span className="uppercase tracking-[0.2em]">Negocio</span>
         <select
-          className="h-10 w-full rounded-lg border border-border bg-white/70 px-3 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ui-select"
           value={business_id ?? ""}
           onChange={(event) => setBusinessId(event.target.value)}
           disabled={businessesQuery.isLoading}
@@ -94,10 +94,10 @@ export function OperatingSelector() {
         </select>
       </label>
 
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        <span>Sucursal</span>
+      <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+        <span className="uppercase tracking-[0.2em]">Sucursal</span>
         <select
-          className="h-10 w-full rounded-lg border border-border bg-white/70 px-3 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ui-select"
           value={branch_id ?? ""}
           onChange={(event) => setBranchId(event.target.value)}
           disabled={!business_id || branchesQuery.isLoading}
@@ -111,10 +111,10 @@ export function OperatingSelector() {
         </select>
       </label>
 
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        <span>Caja</span>
+      <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+        <span className="uppercase tracking-[0.2em]">Caja</span>
         <select
-          className="h-10 w-full rounded-lg border border-border bg-white/70 px-3 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ui-select"
           value={register_id ?? ""}
           onChange={(event) => setRegisterId(event.target.value)}
           disabled={!business_id || !branch_id || registersQuery.isLoading}

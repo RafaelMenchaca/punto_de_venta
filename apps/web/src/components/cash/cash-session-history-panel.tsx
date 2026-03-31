@@ -63,7 +63,7 @@ export function CashSessionHistoryPanel({
           <div className="space-y-2">
             <label className="text-sm font-medium">Estado</label>
             <select
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm"
+              className="ui-select"
               value={status}
               onChange={(event) => setStatus(event.target.value)}
             >
@@ -122,7 +122,11 @@ export function CashSessionHistoryPanel({
               Lista operativa de sesiones de caja.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+        <CardContent className="space-y-3">
+            <div className="rounded-[1.2rem] border border-border bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+              {sessionsQuery.data?.length ?? 0} sesion
+              {(sessionsQuery.data?.length ?? 0) === 1 ? "" : "es"} en el rango actual
+            </div>
             {!sessionsQuery.isLoading && sessionsQuery.data?.length === 0 ? (
               <EmptyState
                 title="Sin sesiones"

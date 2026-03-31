@@ -6,14 +6,9 @@ import { InventoryValuationReportPanel } from "@/components/reports/inventory-va
 import { SalesReportPanel } from "@/components/reports/sales-report-panel";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { MetricCard } from "@/components/shared/metric-card";
+import { ModuleHeader } from "@/components/shared/module-header";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { useOperatingContext } from "@/features/context/hooks";
 import { useCurrentBusiness } from "@/hooks/use-current-business";
 import { useHydratedStore } from "@/hooks/use-hydrated-store";
@@ -46,54 +41,34 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Contexto de reportes</CardTitle>
-          <CardDescription>
-            Los reportes se calculan sobre el negocio y la sucursal activos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Negocio"
-            value={
-              contextQuery.data?.business?.name ?? "Resolviendo negocio..."
-            }
-          />
-          <MetricCard
-            label="Sucursal"
-            value={contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
-          />
-          <MetricCard
-            label="Caja actual"
-            value={contextQuery.data?.register?.name ?? "Resolviendo caja..."}
-          />
-        </CardContent>
-      </Card>
+      <ModuleHeader
+        eyebrow="Reportes"
+        title="Lectura rapida del negocio"
+        description="Consulta ventas, caja e inventario valorizado con un formato mas claro para revisar dinero, cierres y stock sin perder tiempo entre tablas densas."
+      >
+        <MetricCard
+          label="Negocio"
+          value={contextQuery.data?.business?.name ?? "Resolviendo negocio..."}
+        />
+        <MetricCard
+          label="Sucursal"
+          value={contextQuery.data?.branch?.name ?? "Resolviendo sucursal..."}
+        />
+        <MetricCard
+          label="Caja actual"
+          value={contextQuery.data?.register?.name ?? "Resolviendo caja..."}
+        />
+      </ModuleHeader>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-white/70 p-2">
-        <Button
-          type="button"
-          variant={activeTab === "sales" ? "default" : "outline"}
-          onClick={() => setActiveTab("sales")}
-        >
-          Ventas
-        </Button>
-        <Button
-          type="button"
-          variant={activeTab === "cash" ? "default" : "outline"}
-          onClick={() => setActiveTab("cash")}
-        >
-          Caja
-        </Button>
-        <Button
-          type="button"
-          variant={activeTab === "inventory" ? "default" : "outline"}
-          onClick={() => setActiveTab("inventory")}
-        >
-          Inventario
-        </Button>
-      </div>
+      <SegmentedTabs
+        items={[
+          { id: "sales", label: "Ventas" },
+          { id: "cash", label: "Caja" },
+          { id: "inventory", label: "Inventario" },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === "sales" ? (
         <SalesReportPanel
@@ -117,17 +92,6 @@ export default function ReportsPage() {
           branchId={branch_id}
         />
       ) : null}
-    </div>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white/60 p-4">
-      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-medium">{value}</p>
     </div>
   );
 }

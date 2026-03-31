@@ -12,15 +12,11 @@ import { OpenCashForm } from "@/components/cash/open-cash-form";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { NoticeBanner } from "@/components/shared/notice-banner";
+import { SegmentedTabs } from "@/components/shared/segmented-tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   useCashSessionSummaryQuery,
   useCloseCashSessionMutation,
@@ -91,56 +87,42 @@ export default function CashPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Contexto de caja</CardTitle>
-              <CardDescription>
-                Operacion diaria sobre la seleccion actual.
-              </CardDescription>
-            </div>
-            <Button type="button" variant="outline" onClick={refreshCashData}>
-              Actualizar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ContextMetric
-            label="Negocio"
-            value={contextQuery.data?.business?.name ?? "Sin seleccionar"}
-          />
-          <ContextMetric
-            label="Sucursal"
-            value={contextQuery.data?.branch?.name ?? "Sin seleccionar"}
-          />
-          <ContextMetric
-            label="Caja"
-            value={contextQuery.data?.register?.name ?? "Sin seleccionar"}
-          />
-          <ContextMetric
-            label="Usuario"
-            value={contextQuery.data?.user.full_name ?? "Sin resolver"}
-          />
-        </CardContent>
-      </Card>
+      <ModuleHeader
+        eyebrow="Caja"
+        title="Sesion actual y conciliacion diaria"
+        description="Revisa el estado vivo de la caja, registra ingresos o retiros manuales y consulta cierres recientes sin perder el contexto operativo."
+        actions={
+          <Button type="button" variant="outline" onClick={refreshCashData}>
+            Actualizar
+          </Button>
+        }
+      >
+        <MetricCard
+          label="Negocio"
+          value={contextQuery.data?.business?.name ?? "Sin seleccionar"}
+        />
+        <MetricCard
+          label="Sucursal"
+          value={contextQuery.data?.branch?.name ?? "Sin seleccionar"}
+        />
+        <MetricCard
+          label="Caja"
+          value={contextQuery.data?.register?.name ?? "Sin seleccionar"}
+        />
+        <MetricCard
+          label="Usuario"
+          value={contextQuery.data?.user.full_name ?? "Sin resolver"}
+        />
+      </ModuleHeader>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-white/70 p-2">
-        <Button
-          type="button"
-          variant={activeTab === "current" ? "default" : "outline"}
-          onClick={() => setActiveTab("current")}
-        >
-          Sesion actual
-        </Button>
-        <Button
-          type="button"
-          variant={activeTab === "history" ? "default" : "outline"}
-          onClick={() => setActiveTab("history")}
-        >
-          Historial
-        </Button>
-      </div>
+      <SegmentedTabs
+        items={[
+          { id: "current", label: "Sesion actual" },
+          { id: "history", label: "Historial" },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === "current" ? (
         <>
@@ -230,7 +212,7 @@ export default function CashPage() {
                 ) : null}
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
                 <CashMovementForm
                   loading={movementMutation.isPending}
                   onSubmit={async (payload) => {
@@ -284,17 +266,6 @@ export default function CashPage() {
           registerId={register_id}
         />
       )}
-    </div>
-  );
-}
-
-function ContextMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white/60 p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-medium">{value}</p>
     </div>
   );
 }

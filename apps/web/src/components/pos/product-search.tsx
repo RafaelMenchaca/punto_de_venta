@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,7 +47,7 @@ export function ProductSearch({
       <CardHeader>
         <CardTitle>Buscar producto</CardTitle>
         <CardDescription>
-          Busca por nombre, SKU o codigo de barras.
+          Busca por nombre, SKU o codigo de barras y agrega rapidamente al carrito.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -81,6 +82,17 @@ export function ProductSearch({
           />
         ) : null}
 
+        {query.data?.length ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Resultados
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {query.data.length} producto{query.data.length === 1 ? "" : "s"}
+            </p>
+          </div>
+        ) : null}
+
         <div className="space-y-3">
           {query.data?.map((product) => {
             const outOfStock =
@@ -91,34 +103,53 @@ export function ProductSearch({
             return (
               <div
                 key={product.id}
-                className="flex flex-col gap-3 rounded-2xl border border-border bg-white/60 p-4 lg:flex-row lg:items-center lg:justify-between"
+                className="rounded-[1.35rem] border border-border/80 bg-white/72 p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)]"
               >
-                <div>
-                  <p className="font-medium">{product.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    SKU: {product.sku ?? "sin SKU"} | Stock:{" "}
-                    {product.availableStock}
-                  </p>
-                  {product.categoryName || product.brandName ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {[product.categoryName, product.brandName]
-                        .filter(Boolean)
-                        .join(" | ")}
-                    </p>
-                  ) : null}
-                </div>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{product.name}</p>
+                        {product.trackInventory ? (
+                          <Badge
+                            variant={
+                              outOfStock
+                                ? "destructive"
+                                : "success"
+                            }
+                          >
+                            {outOfStock ? "Sin stock" : "Disponible"}
+                          </Badge>
+                        ) : (
+                          <Badge>Sin control</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        SKU: {product.sku ?? "sin SKU"} | Stock:{" "}
+                        {product.availableStock}
+                      </p>
+                    </div>
 
-                <div className="flex items-center gap-3">
-                  <p className="text-sm font-semibold">
-                    {formatCurrency(product.unitPrice)}
-                  </p>
-                  <Button
-                    size="sm"
-                    disabled={outOfStock}
-                    onClick={() => onSelect(product)}
-                  >
-                    {outOfStock ? "Sin stock" : actionLabel}
-                  </Button>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Categoria: {product.categoryName ?? "Sin categoria"}
+                      </span>
+                      <span>Marca: {product.brandName ?? "Sin marca"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-start gap-3 lg:items-end">
+                    <p className="text-lg font-semibold tracking-tight">
+                      {formatCurrency(product.unitPrice)}
+                    </p>
+                    <Button
+                      size="sm"
+                      disabled={outOfStock}
+                      onClick={() => onSelect(product)}
+                    >
+                      {outOfStock ? "Sin stock" : actionLabel}
+                    </Button>
+                  </div>
                 </div>
               </div>
             );

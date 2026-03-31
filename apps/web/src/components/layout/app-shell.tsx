@@ -6,12 +6,12 @@ import { AppSidebar } from "./app-sidebar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 px-4 py-6 md:px-6 lg:flex-row">
+    <div className="mx-auto flex min-h-screen max-w-[1560px] flex-col gap-6 px-4 py-6 md:px-6 lg:flex-row lg:items-start">
       <AppSidebar />
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         <AppHeader />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 pb-10">{children}</main>
       </div>
     </div>
   );

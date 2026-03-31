@@ -99,7 +99,7 @@ export function InventoryEntryForm({
           <Field label="Ubicacion" htmlFor="entry-location">
             <select
               id="entry-location"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={locationId}
               onChange={(event) => setLocationId(event.target.value)}
             >
@@ -116,7 +116,7 @@ export function InventoryEntryForm({
           <Field label="Proveedor" htmlFor="entry-supplier">
             <select
               id="entry-supplier"
-              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ui-select"
               value={supplierId}
               onChange={(event) => setSupplierId(event.target.value)}
             >
