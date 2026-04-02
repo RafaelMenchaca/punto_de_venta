@@ -24,22 +24,28 @@ export function SaleSummary({
   const totals = calculateCartTotals(items, saleDiscount, payments);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Resumen</CardTitle>
-        <CardDescription>
-          Descuentos, impuestos y total de la venta actual.
-        </CardDescription>
+    <Card className="overflow-hidden border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(246,242,235,0.92))]">
+      <CardHeader className="pb-4">
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
+            Panel de totales
+          </p>
+          <CardTitle>Resumen de la venta</CardTitle>
+          <CardDescription>
+            El total permanece visible mientras ajustas descuentos, impuestos y
+            validaciones previas al cobro.
+          </CardDescription>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-5 text-sm">
-        <div className="rounded-[1.5rem] bg-primary px-5 py-5 text-primary-foreground shadow-[0_18px_34px_rgba(15,118,110,0.18)]">
+      <CardContent className="space-y-4 text-sm">
+        <div className="rounded-[1.65rem] bg-primary px-5 py-5 text-primary-foreground shadow-[0_18px_34px_rgba(15,118,110,0.18)]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary-foreground/70">
             Total a cobrar
           </p>
           <p className="mt-3 text-4xl font-semibold tracking-tight">
             {formatCurrency(totals.total)}
           </p>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <HeroMetric
               label="Subtotal neto"
               value={formatCurrency(totals.subtotal)}
@@ -55,49 +61,45 @@ export function SaleSummary({
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_190px]">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryTile
-              label="Subtotal bruto"
-              value={formatCurrency(totals.grossSubtotal)}
-            />
-            <SummaryTile
-              label="Descuento por lineas"
-              value={formatCurrency(totals.lineDiscountTotal)}
-              negative
-            />
-            <SummaryTile
-              label="Subtotal neto"
-              value={formatCurrency(totals.subtotal)}
-            />
-            <SummaryTile
-              label="Impuestos"
-              value={formatCurrency(totals.taxTotal)}
-            />
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SummaryTile
+            label="Subtotal bruto"
+            value={formatCurrency(totals.grossSubtotal)}
+          />
+          <SummaryTile
+            label="Descuento por lineas"
+            value={formatCurrency(totals.lineDiscountTotal)}
+            negative
+          />
+          <SummaryTile
+            label="Subtotal neto"
+            value={formatCurrency(totals.subtotal)}
+          />
+          <SummaryTile
+            label="Impuestos"
+            value={formatCurrency(totals.taxTotal)}
+          />
+        </div>
 
-          <div className="rounded-[1.35rem] border border-border bg-white/72 p-4">
-            <label
-              htmlFor="sale-discount"
-              className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Descuento general
-            </label>
-            <Input
-              id="sale-discount"
-              className="mt-3"
-              type="number"
-              min="0"
-              step="0.01"
-              value={saleDiscount}
-              onChange={(event) =>
-                onSaleDiscountChange(Number(event.target.value))
-              }
-            />
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Se aplica al total de la venta despues del descuento por lineas.
-            </p>
-          </div>
+        <div className="rounded-[1.45rem] border border-dashed border-border/80 bg-white/74 p-4">
+          <label
+            htmlFor="sale-discount"
+            className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Descuento general
+          </label>
+          <Input
+            id="sale-discount"
+            className="mt-3"
+            type="number"
+            min="0"
+            step="0.01"
+            value={saleDiscount}
+            onChange={(event) => onSaleDiscountChange(Number(event.target.value))}
+          />
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Se aplica al total de la venta despues del descuento por lineas.
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -127,7 +129,7 @@ function SummaryTile({
   negative?: boolean;
 }) {
   return (
-    <div className="rounded-[1.2rem] border border-border bg-white/72 p-4">
+    <div className="rounded-[1.3rem] border border-border/80 bg-white/76 p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
         {label}
       </p>
