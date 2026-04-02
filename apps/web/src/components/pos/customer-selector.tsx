@@ -73,16 +73,32 @@ export function CustomerSelector({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Cliente</CardTitle>
-        <CardDescription>
-          La venta puede hacerse sin cliente, pero aqui puedes asociarlo o
-          darlo de alta sin salir del POS.
-        </CardDescription>
+    <Card className="border-white/80 bg-white/88">
+      <CardHeader className="pb-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Cliente opcional
+            </p>
+            <CardTitle>Cliente de la venta</CardTitle>
+            <CardDescription className="max-w-2xl">
+              Sigue disponible para asociar o dar de alta, pero queda como un
+              apoyo secundario frente a la captura y el cobro.
+            </CardDescription>
+          </div>
+
+          <div className="rounded-[1.4rem] border border-white/80 bg-muted/38 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Estado
+            </p>
+            <p className="mt-2 text-sm font-semibold">
+              {selectedCustomer ? "Cliente asignado" : "Venta general"}
+            </p>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-[1.4rem] border border-border/80 bg-muted/55 p-4">
+      <CardContent className="space-y-5">
+        <div className="rounded-[1.5rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(236,228,214,0.38))] p-4">
           {selectedCustomer ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
@@ -159,7 +175,7 @@ export function CustomerSelector({
         {customerResults.length > 0 ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 Resultados
               </p>
               <p className="text-sm text-muted-foreground">
@@ -167,35 +183,44 @@ export function CustomerSelector({
                 {customerResults.length === 1 ? "" : "s"}
               </p>
             </div>
-            {customerResults.map((customer) => (
-              <div
-                key={customer.id}
-                className="flex flex-col gap-3 rounded-[1.35rem] border border-border/80 bg-white/72 p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)] lg:flex-row lg:items-center lg:justify-between"
-              >
-                <div>
-                  <p className="font-medium">{customer.fullName}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {[customer.phone, customer.email]
-                      .filter(Boolean)
-                      .join(" | ") || "Sin telefono ni email"}
-                  </p>
-                </div>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => onSelectCustomer(mapCustomerRecord(customer))}
+            <div className="grid gap-3 xl:grid-cols-2">
+              {customerResults.map((customer) => (
+                <div
+                  key={customer.id}
+                  className="flex flex-col gap-3 rounded-[1.4rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(236,228,214,0.36))] p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)]"
                 >
-                  Seleccionar
-                </Button>
-              </div>
-            ))}
+                  <div>
+                    <p className="font-medium">{customer.fullName}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {[customer.phone, customer.email]
+                        .filter(Boolean)
+                        .join(" | ") || "Sin telefono ni email"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      Listo para asociar a la venta actual.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() =>
+                        onSelectCustomer(mapCustomerRecord(customer))
+                      }
+                    >
+                      Seleccionar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
         {showCreateForm ? (
           <form
-            className="space-y-4 rounded-[1.45rem] border border-border/80 bg-white/72 p-5 shadow-[0_12px_24px_rgba(23,23,23,0.05)]"
+            className="space-y-4 rounded-[1.5rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(236,228,214,0.34))] p-5 shadow-[0_12px_24px_rgba(23,23,23,0.05)]"
             onSubmit={(event) => {
               event.preventDefault();
 
