@@ -1,13 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +8,7 @@ import type {
   RealPaymentMethod,
   SalePaymentInput,
 } from "@/features/sales/types";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 const paymentMethodOptions: Array<{
   value: RealPaymentMethod;
@@ -43,6 +36,7 @@ export function PaymentPanel({
   onRemovePayment,
   onNotesChange,
   onSubmit,
+  className,
 }: {
   payments: SalePaymentInput[];
   notes: string;
@@ -62,147 +56,61 @@ export function PaymentPanel({
   onRemovePayment: (paymentId: string) => void;
   onNotesChange: (notes: string) => void;
   onSubmit: () => Promise<void>;
+  className?: string;
 }) {
   const paymentDifference = Math.abs(remaining) < 0.009 ? 0 : remaining;
 
   return (
-    <Card className="overflow-hidden border-white/80 bg-white/92">
-      <CardHeader className="pb-4">
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
-            Cobro
-          </p>
-          <CardTitle>Finalizar venta</CardTitle>
-          <CardDescription>
-            Organiza montos, referencias y notas con una lectura inmediata de
-            recibido, falta o cambio.
-          </CardDescription>
+    <section
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden rounded-[1.3rem] border border-black/10 bg-white/92",
+        className,
+      )}
+    >
+      <div className="border-b border-black/8 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+          Cobro
+        </p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          <PaymentMetric label="Recibido" value={formatCurrency(receivedTotal)} />
+          <PaymentMetric
+            label={
+              hasUnsupportedChange
+                ? "Excedente"
+                : change > 0
+                  ? "Cambio"
+                  : paymentDifference > 0
+                    ? "Falta"
+                    : "Exacto"
+            }
+            value={
+              hasUnsupportedChange
+                ? formatCurrency(Math.max(receivedTotal - total, 0))
+                : change > 0
+                  ? formatCurrency(change)
+                  : paymentDifference > 0
+                    ? formatCurrency(paymentDifference)
+                    : formatCurrency(0)
+            }
+          />
+          <PaymentMetric label="Total" value={formatCurrency(total)} emphasized />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="rounded-[1.65rem] border border-primary/10 bg-[linear-gradient(135deg,rgba(15,118,110,0.12),rgba(255,255,255,0.92)_42%,rgba(236,228,214,0.58))] p-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <PaymentMetric label="Total" value={formatCurrency(total)} />
-            <PaymentMetric
-              label="Recibido"
-              value={formatCurrency(receivedTotal)}
-            />
-            <PaymentMetric
-              label={
-                hasUnsupportedChange
-                  ? "Excedente"
-                  : change > 0
-                    ? "Cambio"
-                    : paymentDifference > 0
-                      ? "Falta"
-                      : "Cobro exacto"
-              }
-              value={
-                hasUnsupportedChange
-                  ? formatCurrency(Math.max(receivedTotal - total, 0))
-                  : change > 0
-                    ? formatCurrency(change)
-                    : paymentDifference > 0
-                      ? formatCurrency(paymentDifference)
-                      : formatCurrency(0)
-              }
-              emphasized
-            />
-          </div>
+      </div>
 
-          {helperMessage ? (
-            <div className="mt-4 rounded-[1.2rem] border border-dashed border-primary/15 bg-white/76 px-4 py-3 text-sm text-muted-foreground">
-              {helperMessage}
-            </div>
-          ) : null}
-        </div>
-
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="space-y-3">
           {payments.map((payment, index) => (
             <div
               key={payment.id}
-              className="rounded-[1.45rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(236,228,214,0.38))] p-4 shadow-[0_10px_22px_rgba(23,23,23,0.05)]"
+              className="rounded-xl border border-black/8 px-3 py-3"
             >
               <div className="flex items-center justify-between gap-3">
-                <Label
-                  className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
-                  htmlFor={`payment-method-${payment.id}`}
-                >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   Metodo {index + 1}
-                </Label>
-                <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {payment.payment_method === "cash"
-                    ? "Admite cambio"
-                    : "Cobro exacto"}
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <select
-                    id={`payment-method-${payment.id}`}
-                    className="ui-select"
-                    value={payment.payment_method}
-                    onChange={(event) =>
-                      onUpdatePayment(payment.id, {
-                        payment_method: event.target.value as RealPaymentMethod,
-                      })
-                    }
-                  >
-                    {paymentMethodOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor={`payment-amount-${payment.id}`}>
-                    {payment.payment_method === "cash"
-                      ? "Monto recibido"
-                      : "Monto a cobrar"}
-                  </Label>
-                  <Input
-                    id={`payment-amount-${payment.id}`}
-                    className="h-12 text-base"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={payment.amount}
-                    onChange={(event) =>
-                      onUpdatePayment(payment.id, {
-                        amount: Number(event.target.value),
-                      })
-                    }
-                  />
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {payment.payment_method === "cash"
-                      ? "Si recibes mas efectivo, el cambio se calcula automaticamente."
-                      : "Este monto debe coincidir con lo que se cobrara por este metodo."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                <div className="space-y-2">
-                  <Label htmlFor={`payment-reference-${payment.id}`}>
-                    Referencia
-                  </Label>
-                  <Input
-                    id={`payment-reference-${payment.id}`}
-                    placeholder="Ultimos digitos o nota"
-                    value={payment.reference}
-                    onChange={(event) =>
-                      onUpdatePayment(payment.id, {
-                        reference: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-
+                </p>
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
                   disabled={payments.length === 1}
                   onClick={() => onRemovePayment(payment.id)}
@@ -210,23 +118,89 @@ export function PaymentPanel({
                   Quitar
                 </Button>
               </div>
+
+              <div className="mt-3 space-y-3">
+                <select
+                  id={`payment-method-${payment.id}`}
+                  className="ui-select"
+                  value={payment.payment_method}
+                  onChange={(event) =>
+                    onUpdatePayment(payment.id, {
+                      payment_method: event.target.value as RealPaymentMethod,
+                    })
+                  }
+                >
+                  {paymentMethodOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor={`payment-amount-${payment.id}`}>
+                      {payment.payment_method === "cash"
+                        ? "Monto recibido"
+                        : "Monto a cobrar"}
+                    </Label>
+                    <Input
+                      id={`payment-amount-${payment.id}`}
+                      className="h-10"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={payment.amount}
+                      onChange={(event) =>
+                        onUpdatePayment(payment.id, {
+                          amount: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`payment-reference-${payment.id}`}>
+                      Referencia
+                    </Label>
+                    <Input
+                      id={`payment-reference-${payment.id}`}
+                      className="h-10"
+                      placeholder="Ultimos digitos o nota"
+                      value={payment.reference}
+                      onChange={(event) =>
+                        onUpdatePayment(payment.id, {
+                          reference: event.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
 
           <Button type="button" variant="outline" onClick={onAddPayment}>
             Agregar metodo
           </Button>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="sale-notes">Notas</Label>
-          <Textarea
-            id="sale-notes"
-            placeholder="Observaciones de la venta"
-            value={notes}
-            onChange={(event) => onNotesChange(event.target.value)}
-          />
+          <div className="space-y-2">
+            <Label htmlFor="sale-notes">Notas</Label>
+            <Textarea
+              id="sale-notes"
+              className="min-h-20"
+              placeholder="Observaciones de la venta"
+              value={notes}
+              onChange={(event) => onNotesChange(event.target.value)}
+            />
+          </div>
         </div>
+      </div>
+
+      <div className="shrink-0 border-t border-black/8 bg-white px-4 py-3">
+        {helperMessage ? (
+          <p className="mb-3 text-sm text-muted-foreground">{helperMessage}</p>
+        ) : null}
 
         <Button
           className="h-12 w-full text-base"
@@ -235,8 +209,8 @@ export function PaymentPanel({
         >
           {loading ? "Finalizando..." : "Cobrar y cerrar venta"}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -250,15 +224,16 @@ function PaymentMetric({
   emphasized?: boolean;
 }) {
   return (
-    <div className="rounded-[1.3rem] border border-white/80 bg-white/78 p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)]">
+    <div
+      className={cn(
+        "rounded-xl border border-black/8 px-3 py-2",
+        emphasized && "bg-primary/6",
+      )}
+    >
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
         {label}
       </p>
-      <p
-        className={`mt-3 font-semibold tracking-tight ${
-          emphasized ? "text-2xl" : "text-xl"
-        }`}
-      >
+      <p className={cn("mt-2 font-semibold", emphasized ? "text-xl" : "text-base")}>
         {value}
       </p>
     </div>

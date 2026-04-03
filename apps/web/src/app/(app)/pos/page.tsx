@@ -100,9 +100,8 @@ export default function PosPage() {
   >(null);
   const [refundValues, setRefundValues] = useState<Record<string, string>>({});
   const [refundReason, setRefundReason] = useState("");
-  const [workspaceView, setWorkspaceView] = useState<"expanded" | "compact">(
-    "expanded",
-  );
+  const [minimizedWorkspaceSessionId, setMinimizedWorkspaceSessionId] =
+    useState<string | null>(null);
 
   const historyDetailQuery = useSaleDetailQuery(
     selectedHistorySaleId,
@@ -210,6 +209,14 @@ export default function PosPage() {
     Boolean(openSession) &&
     !openSessionQuery.isLoading &&
     !saleTabErrorMessage;
+  const isWorkspaceVisible =
+    isOperationalSaleView &&
+    Boolean(openSession) &&
+    minimizedWorkspaceSessionId !== openSession?.id;
+  const isWorkspaceMinimized =
+    isOperationalSaleView &&
+    Boolean(openSession) &&
+    minimizedWorkspaceSessionId === openSession?.id;
   const saleWorkspaceStatus =
     items.length === 0
       ? "Esperando captura"
@@ -222,6 +229,14 @@ export default function PosPage() {
       : totals.isPaymentReady
         ? "success"
         : "warning";
+
+  useEffect(() => {
+    document.body.classList.toggle("pos-workspace-active", isWorkspaceVisible);
+
+    return () => {
+      document.body.classList.remove("pos-workspace-active");
+    };
+  }, [isWorkspaceVisible]);
 
   if (!hydrated) {
     return <LoadingState message="Inicializando POS..." />;
@@ -253,7 +268,7 @@ export default function PosPage() {
 
   return (
     <div className="space-y-6">
-      {!isOperationalSaleView ? (
+      {!isWorkspaceVisible ? (
         <>
           <ModuleHeader
             eyebrow="POS"
@@ -300,25 +315,24 @@ export default function PosPage() {
         </>
       ) : null}
 
-      {isOperationalSaleView ? (
+      {isWorkspaceVisible ? (
         <PosWorkspaceShell
-          view={workspaceView}
+          title="POS | Venta actual"
           statusLabel={saleWorkspaceStatus}
           statusVariant={saleWorkspaceStatusVariant}
-          saleTotal={formatCurrency(totals.total)}
-          lineCount={items.length}
-          customerLabel={selectedCustomer?.fullName ?? "Venta general"}
-          cashierLabel={
-            contextQuery.data?.user.full_name ?? "Resolviendo usuario..."
-          }
-          registerLabel={contextQuery.data?.register?.name ?? "Caja activa"}
-          branchLabel={contextQuery.data?.branch?.name ?? "Sucursal actual"}
+          metaLabel={`${contextQuery.data?.register?.name ?? "Caja activa"} | ${
+            contextQuery.data?.branch?.name ?? "Sucursal actual"
+          } | ${contextQuery.data?.user.full_name ?? "Cajero"}`}
           sessionLabel={openSessionLabel}
-          onToggleView={() =>
-            setWorkspaceView((current) =>
-              current === "expanded" ? "compact" : "expanded",
-            )
-          }
+          lastSaleLabel={lastSale ? `Ultimo ticket ${lastSale.sale.folio}` : null}
+          onShowSale={() => setActiveTab("sale")}
+          onShowHistory={() => setActiveTab("history")}
+          onShowRefunds={() => setActiveTab("refunds")}
+          onMinimize={() => {
+            if (openSession) {
+              setMinimizedWorkspaceSessionId(openSession.id);
+            }
+          }}
           actions={
             items.length > 0 ? (
               <Button type="button" variant="outline" onClick={handleClearSale}>
@@ -326,19 +340,16 @@ export default function PosPage() {
               </Button>
             ) : undefined
           }
-          tabs={
-            <SegmentedTabs
-              items={posTabs}
-              value={activeTab}
-              onChange={setActiveTab}
-              className="border-white/70 bg-white/68 shadow-[0_12px_28px_rgba(23,23,23,0.05)]"
-            />
-          }
           main={
-            <>
-              {saleError ? <ErrorState message={saleError} /> : null}
+            <div className="flex h-full min-h-0 flex-col gap-3">
+              {saleError ? (
+                <div className="rounded-[1.1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {saleError}
+                </div>
+              ) : null}
 
               <ProductSearch
+                className="shrink-0"
                 business_id={business_id}
                 branch_id={branch_id}
                 disableOutOfStock
@@ -367,6 +378,7 @@ export default function PosPage() {
               />
 
               <PosCart
+                className="min-h-0 flex-1"
                 items={items}
                 saleTotal={totals.total}
                 onQuantityChange={(productId, quantity) => {
@@ -407,18 +419,18 @@ export default function PosPage() {
               />
 
               <CustomerSelector
+                className="shrink-0"
                 businessId={business_id}
                 selectedCustomer={selectedCustomer}
                 onSelectCustomer={setSelectedCustomer}
                 onClearCustomer={() => setSelectedCustomer(null)}
               />
-            </>
+            </div>
           }
           aside={
-            <>
-              {lastSale ? <LastSaleSnapshot sale={lastSale} /> : null}
-
+            <div className="flex h-full min-h-0 flex-col gap-3">
               <SaleSummary
+                className="shrink-0"
                 items={items}
                 saleDiscount={saleDiscount}
                 payments={paymentLines}
@@ -426,6 +438,7 @@ export default function PosPage() {
               />
 
               <PaymentPanel
+                className="min-h-0 flex-1"
                 payments={paymentLines}
                 notes={notes}
                 total={totals.total}
@@ -533,8 +546,16 @@ export default function PosPage() {
                   }
                 }}
               />
-            </>
+            </div>
           }
+        />
+      ) : null}
+
+      {isWorkspaceMinimized ? (
+        <WorkspaceResumeStrip
+          total={formatCurrency(totals.total)}
+          sessionLabel={openSessionLabel}
+          onResume={() => setMinimizedWorkspaceSessionId(null)}
         />
       ) : null}
 
@@ -548,6 +569,15 @@ export default function PosPage() {
           }
           registerLabel={contextQuery.data?.register?.name ?? "Caja activa"}
           branchLabel={contextQuery.data?.branch?.name ?? "Sucursal actual"}
+        />
+      ) : null}
+
+      {activeTab === "sale" && isWorkspaceMinimized ? (
+        <MinimizedWorkspaceState
+          total={formatCurrency(totals.total)}
+          lineCount={items.length}
+          customerLabel={selectedCustomer?.fullName ?? "Venta general"}
+          onResume={() => setMinimizedWorkspaceSessionId(null)}
         />
       ) : null}
 
@@ -762,53 +792,70 @@ export default function PosPage() {
   );
 }
 
-function LastSaleSnapshot({ sale }: { sale: SaleDetailResponse }) {
+function WorkspaceResumeStrip({
+  total,
+  sessionLabel,
+  onResume,
+}: {
+  total: string;
+  sessionLabel: string;
+  onResume: () => void;
+}) {
   return (
-    <Card className="overflow-hidden border-emerald-200/80 bg-[linear-gradient(180deg,rgba(236,253,245,0.94),rgba(255,255,255,0.94))]">
-      <CardHeader className="pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
-              Ultima venta registrada
-            </p>
-            <CardTitle className="mt-2 text-xl">{sale.sale.folio}</CardTitle>
-          </div>
-          <Badge
-            variant={
-              sale.sale.status === "cancelled"
-                ? "destructive"
-                : sale.sale.status === "refunded" ||
-                    sale.sale.status === "partially_refunded"
-                  ? "warning"
-                  : "success"
-            }
-          >
-            {getSaleStatusLabel(sale.sale.status)}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <CompactMetric
-            label="Total neto"
-            value={formatCurrency(sale.sale.netTotal)}
-            emphasized
-          />
-          <CompactMetric
-            label="Cliente"
-            value={sale.sale.customer?.fullName ?? "Publico general"}
-          />
-          <CompactMetric
-            label="Pago"
-            value={sale.sale.paymentSummary.label}
-          />
-        </div>
-        <p className="text-sm leading-6 text-muted-foreground">
-          Ticket reciente para referencia rapida sin robar protagonismo a la
-          venta en curso.
+    <div className="fixed bottom-4 right-4 z-[60] flex items-center gap-3 rounded-full border border-black/10 bg-white/96 px-4 py-3 shadow-[0_18px_40px_rgba(23,23,23,0.16)]">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          POS minimizado
         </p>
-      </CardContent>
-    </Card>
+        <p className="text-sm font-medium">
+          {sessionLabel} | Total {total}
+        </p>
+      </div>
+      <Button type="button" size="sm" onClick={onResume}>
+        Volver a POS
+      </Button>
+    </div>
+  );
+}
+
+function MinimizedWorkspaceState({
+  total,
+  lineCount,
+  customerLabel,
+  onResume,
+}: {
+  total: string;
+  lineCount: number;
+  customerLabel: string;
+  onResume: () => void;
+}) {
+  return (
+    <section className="rounded-[1.8rem] border border-white/80 bg-white/88 p-5 shadow-[0_24px_56px_rgba(23,23,23,0.08)]">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-2">
+          <Badge>Modo caja minimizado</Badge>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            La venta sigue abierta y lista para volver al POS.
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            La operacion no se cerro. Puedes restaurar el workspace de cobro en
+            cualquier momento.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <CompactMetric label="Total" value={total} emphasized />
+          <CompactMetric label="Lineas" value={String(lineCount)} />
+          <CompactMetric label="Cliente" value={customerLabel} />
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <Button type="button" onClick={onResume}>
+          Volver al modo caja
+        </Button>
+      </div>
+    </section>
   );
 }
 
