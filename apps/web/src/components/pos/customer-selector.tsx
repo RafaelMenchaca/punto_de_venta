@@ -2,18 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ErrorState } from "@/components/shared/error-state";
-import { LoadingState } from "@/components/shared/loading-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -23,6 +13,7 @@ import {
 import type { CustomerRecord } from "@/features/customers/types";
 import type { SaleCustomer } from "@/features/sales/types";
 import { getFriendlyErrorMessage } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 
 const mapCustomerRecord = (customer: CustomerRecord): SaleCustomer => ({
   id: customer.id,
@@ -44,12 +35,15 @@ export function CustomerSelector({
   selectedCustomer,
   onSelectCustomer,
   onClearCustomer,
+  className,
 }: {
   businessId: string;
   selectedCustomer: SaleCustomer | null;
   onSelectCustomer: (customer: SaleCustomer) => void;
   onClearCustomer: () => void;
+  className?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -73,233 +67,196 @@ export function CustomerSelector({
   };
 
   return (
-    <Card className="border-white/80 bg-white/88">
-      <CardHeader className="pb-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Cliente opcional
+    <section
+      className={cn(
+        "overflow-hidden rounded-[1.2rem] border border-black/10 bg-white/88",
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Cliente
+          </p>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <p className="truncate text-sm font-semibold">
+              {selectedCustomer?.fullName ?? "Venta general"}
             </p>
-            <CardTitle>Cliente de la venta</CardTitle>
-            <CardDescription className="max-w-2xl">
-              Sigue disponible para asociar o dar de alta, pero queda como un
-              apoyo secundario frente a la captura y el cobro.
-            </CardDescription>
+            {selectedCustomer ? <Badge variant="success">Asociado</Badge> : null}
           </div>
-
-          <div className="rounded-[1.4rem] border border-white/80 bg-muted/38 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Estado
-            </p>
-            <p className="mt-2 text-sm font-semibold">
-              {selectedCustomer ? "Cliente asignado" : "Venta general"}
-            </p>
-          </div>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {selectedCustomer
+              ? [selectedCustomer.phone, selectedCustomer.email]
+                  .filter(Boolean)
+                  .join(" | ") || "Sin datos adicionales"
+              : "Opcional. No debe interrumpir el flujo de cobro."}
+          </p>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="rounded-[1.5rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(236,228,214,0.38))] p-4">
+
+        <div className="flex shrink-0 items-center gap-2">
           {selectedCustomer ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Cliente seleccionado
-                  </p>
-                  <Badge variant="success">Listo para cobrar</Badge>
-                </div>
-                <p className="font-semibold">{selectedCustomer.fullName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {[selectedCustomer.phone, selectedCustomer.email]
-                    .filter(Boolean)
-                    .join(" | ") || "Sin datos adicionales"}
-                </p>
-              </div>
-
-              <Button type="button" variant="outline" onClick={onClearCustomer}>
-                Quitar cliente
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Venta sin cliente
-              </p>
-              <p className="font-medium">No hay cliente asociado por ahora.</p>
-              <p className="text-sm text-muted-foreground">
-                Puedes continuar asi o seleccionar uno para dejar mejor trazabilidad.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-          <Input
-            placeholder="Buscar por nombre, telefono o email"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
+            <Button type="button" size="sm" variant="outline" onClick={onClearCustomer}>
+              Quitar
+            </Button>
+          ) : null}
           <Button
             type="button"
-            variant={showCreateForm ? "secondary" : "outline"}
-            onClick={() => setShowCreateForm((current) => !current)}
+            size="sm"
+            variant={expanded ? "secondary" : "outline"}
+            onClick={() => setExpanded((current) => !current)}
           >
-            {showCreateForm ? "Ocultar alta" : "Nuevo cliente"}
+            {expanded ? "Ocultar" : "Cliente"}
           </Button>
         </div>
+      </div>
 
-        {customersQuery.error instanceof Error ? (
-          <ErrorState
-            message={getFriendlyErrorMessage(
-              customersQuery.error,
-              "No se pudieron cargar los clientes en este momento.",
-            )}
-            actionLabel="Reintentar"
-            onAction={() => void customersQuery.refetch()}
-          />
-        ) : null}
+      {expanded ? (
+        <div className="space-y-3 border-t border-black/8 px-4 py-3">
+          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+            <Input
+              placeholder="Buscar por nombre, telefono o email"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant={showCreateForm ? "secondary" : "outline"}
+              onClick={() => setShowCreateForm((current) => !current)}
+            >
+              {showCreateForm ? "Ocultar alta" : "Nuevo cliente"}
+            </Button>
+          </div>
 
-        {customersQuery.isLoading && !customersQuery.data ? (
-          <LoadingState message="Buscando clientes..." />
-        ) : null}
-
-        {!customersQuery.isLoading &&
-        !customersQuery.error &&
-        customerResults.length === 0 ? (
-          <EmptyState
-            title="Sin coincidencias"
-            description="Todavia no hay clientes para este criterio. Puedes crear uno nuevo aqui mismo."
-          />
-        ) : null}
-
-        {customerResults.length > 0 ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Resultados
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {customerResults.length} resultado
-                {customerResults.length === 1 ? "" : "s"}
-              </p>
+          {customersQuery.error instanceof Error ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {getFriendlyErrorMessage(
+                customersQuery.error,
+                "No se pudieron cargar los clientes.",
+              )}
             </div>
-            <div className="grid gap-3 xl:grid-cols-2">
+          ) : null}
+
+          {customersQuery.isLoading && !customersQuery.data ? (
+            <p className="text-sm text-muted-foreground">Buscando clientes...</p>
+          ) : null}
+
+          {customerResults.length > 0 ? (
+            <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
               {customerResults.map((customer) => (
                 <div
                   key={customer.id}
-                  className="flex flex-col gap-3 rounded-[1.4rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(236,228,214,0.36))] p-4 shadow-[0_10px_22px_rgba(23,23,23,0.04)]"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-black/8 px-3 py-2"
                 >
-                  <div>
-                    <p className="font-medium">{customer.fullName}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {customer.fullName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
                       {[customer.phone, customer.email]
                         .filter(Boolean)
                         .join(" | ") || "Sin telefono ni email"}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">
-                      Listo para asociar a la venta actual.
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() =>
-                        onSelectCustomer(mapCustomerRecord(customer))
-                      }
-                    >
-                      Seleccionar
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => onSelectCustomer(mapCustomerRecord(customer))}
+                  >
+                    Seleccionar
+                  </Button>
                 </div>
               ))}
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {showCreateForm ? (
-          <form
-            className="space-y-4 rounded-[1.5rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(236,228,214,0.34))] p-5 shadow-[0_12px_24px_rgba(23,23,23,0.05)]"
-            onSubmit={(event) => {
-              event.preventDefault();
+          {!customersQuery.isLoading &&
+          !customersQuery.error &&
+          searchTerm.trim() &&
+          customerResults.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No hay coincidencias para esta busqueda.
+            </p>
+          ) : null}
 
-              if (!fullName.trim()) {
-                toast.error("El nombre del cliente es obligatorio.");
-                return;
-              }
+          {showCreateForm ? (
+            <form
+              className="space-y-3 rounded-xl border border-black/8 bg-muted/20 p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
 
-              void createCustomerMutation
-                .mutateAsync({
-                  business_id: businessId,
-                  full_name: fullName.trim(),
-                  email: email.trim() || undefined,
-                  phone: phone.trim() || undefined,
-                  notes: notes.trim() || undefined,
-                })
-                .then((customer) => {
-                  const mappedCustomer = mapCustomerRecord(customer);
-                  onSelectCustomer(mappedCustomer);
-                  toast.success("Cliente creado correctamente.");
-                  resetForm();
-                  setSearchTerm(mappedCustomer.fullName ?? "");
-                })
-                .catch((error) => {
-                  toast.error(
-                    getFriendlyErrorMessage(
-                      error,
-                      "No se pudo crear el cliente.",
-                    ),
-                  );
-                });
-            }}
-          >
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Alta rapida
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Captura solo los datos minimos para continuar la venta.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
+                if (!fullName.trim()) {
+                  toast.error("El nombre del cliente es obligatorio.");
+                  return;
+                }
+
+                void createCustomerMutation
+                  .mutateAsync({
+                    business_id: businessId,
+                    full_name: fullName.trim(),
+                    email: email.trim() || undefined,
+                    phone: phone.trim() || undefined,
+                    notes: notes.trim() || undefined,
+                  })
+                  .then((customer) => {
+                    const mappedCustomer = mapCustomerRecord(customer);
+                    onSelectCustomer(mappedCustomer);
+                    toast.success("Cliente creado correctamente.");
+                    resetForm();
+                    setExpanded(false);
+                    setSearchTerm(mappedCustomer.fullName ?? "");
+                  })
+                  .catch((error) => {
+                    toast.error(
+                      getFriendlyErrorMessage(
+                        error,
+                        "No se pudo crear el cliente.",
+                      ),
+                    );
+                  });
+              }}
+            >
+              <div className="grid gap-2 md:grid-cols-2">
+                <Input
+                  placeholder="Nombre completo"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                />
+                <Input
+                  placeholder="Telefono"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </div>
+
               <Input
-                placeholder="Nombre completo"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
+                placeholder="Email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
               />
-              <Input
-                placeholder="Telefono"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
+
+              <Textarea
+                className="min-h-20"
+                placeholder="Notas opcionales"
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
               />
-            </div>
 
-            <Input
-              placeholder="Email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-
-            <Textarea
-              placeholder="Notas opcionales"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={createCustomerMutation.isPending}>
-                {createCustomerMutation.isPending
-                  ? "Guardando..."
-                  : "Guardar cliente"}
-              </Button>
-              <Button type="button" variant="outline" onClick={resetForm}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        ) : null}
-      </CardContent>
-    </Card>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" size="sm" disabled={createCustomerMutation.isPending}>
+                  {createCustomerMutation.isPending
+                    ? "Guardando..."
+                    : "Guardar cliente"}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={resetForm}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
   );
 }

@@ -1,145 +1,92 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { SaleCartItem, SalePaymentInput } from "@/features/sales/types";
 import { calculateCartTotals } from "@/features/sales/utils";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export function SaleSummary({
   items,
   saleDiscount,
   payments,
   onSaleDiscountChange,
+  className,
 }: {
   items: SaleCartItem[];
   saleDiscount: number;
   payments: SalePaymentInput[];
   onSaleDiscountChange: (value: number) => void;
+  className?: string;
 }) {
   const totals = calculateCartTotals(items, saleDiscount, payments);
 
   return (
-    <Card className="overflow-hidden border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(246,242,235,0.92))]">
-      <CardHeader className="pb-4">
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
-            Panel de totales
-          </p>
-          <CardTitle>Resumen de la venta</CardTitle>
-          <CardDescription>
-            El total permanece visible mientras ajustas descuentos, impuestos y
-            validaciones previas al cobro.
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div className="rounded-[1.65rem] bg-primary px-5 py-5 text-primary-foreground shadow-[0_18px_34px_rgba(15,118,110,0.18)]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary-foreground/70">
-            Total a cobrar
-          </p>
-          <p className="mt-3 text-4xl font-semibold tracking-tight">
-            {formatCurrency(totals.total)}
-          </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <HeroMetric
-              label="Subtotal neto"
-              value={formatCurrency(totals.subtotal)}
-            />
-            <HeroMetric
-              label="Impuestos"
-              value={formatCurrency(totals.taxTotal)}
-            />
-            <HeroMetric
-              label="Descuento total"
-              value={formatCurrency(totals.discountTotal)}
-            />
+    <section
+      className={cn(
+        "overflow-hidden rounded-[1.3rem] border border-black/10 bg-primary text-primary-foreground",
+        className,
+      )}
+    >
+      <div className="px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary-foreground/70">
+              Total a cobrar
+            </p>
+            <p className="mt-2 text-4xl font-semibold tracking-tight">
+              {formatCurrency(totals.total)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white/12 px-3 py-2 text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">
+              Lineas
+            </p>
+            <p className="mt-1 text-xl font-semibold">{items.length}</p>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <SummaryTile
+        <div className="mt-4 space-y-2 text-sm">
+          <SummaryRow
             label="Subtotal bruto"
             value={formatCurrency(totals.grossSubtotal)}
           />
-          <SummaryTile
-            label="Descuento por lineas"
+          <SummaryRow
+            label="Descuento lineas"
             value={formatCurrency(totals.lineDiscountTotal)}
-            negative
           />
-          <SummaryTile
-            label="Subtotal neto"
-            value={formatCurrency(totals.subtotal)}
+          <SummaryRow
+            label="Descuento general"
+            value={formatCurrency(totals.saleDiscount)}
           />
-          <SummaryTile
-            label="Impuestos"
-            value={formatCurrency(totals.taxTotal)}
-          />
+          <SummaryRow label="Impuestos" value={formatCurrency(totals.taxTotal)} />
         </div>
+      </div>
 
-        <div className="rounded-[1.45rem] border border-dashed border-border/80 bg-white/74 p-4">
-          <label
-            htmlFor="sale-discount"
-            className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
-          >
-            Descuento general
-          </label>
-          <Input
-            id="sale-discount"
-            className="mt-3"
-            type="number"
-            min="0"
-            step="0.01"
-            value={saleDiscount}
-            onChange={(event) => onSaleDiscountChange(Number(event.target.value))}
-          />
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Se aplica al total de la venta despues del descuento por lineas.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      <div className="border-t border-white/12 bg-black/8 px-4 py-3">
+        <label
+          htmlFor="sale-discount"
+          className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-foreground/70"
+        >
+          Descuento general
+        </label>
+        <Input
+          id="sale-discount"
+          className="mt-2 h-10 border-white/20 bg-white/92 text-foreground"
+          type="number"
+          min="0"
+          step="0.01"
+          value={saleDiscount}
+          onChange={(event) => onSaleDiscountChange(Number(event.target.value))}
+        />
+      </div>
+    </section>
   );
 }
 
-function HeroMetric({ label, value }: { label: string; value: string }) {
+function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white/10 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">
-        {label}
-      </p>
-      <p className="mt-2 text-base font-semibold text-primary-foreground">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function SummaryTile({
-  label,
-  value,
-  negative = false,
-}: {
-  label: string;
-  value: string;
-  negative?: boolean;
-}) {
-  return (
-    <div className="rounded-[1.3rem] border border-border/80 bg-white/76 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={`mt-3 text-lg font-semibold ${
-          negative ? "text-rose-700" : ""
-        }`}
-      >
-        {negative ? `-${value}` : value}
-      </p>
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-white/8 px-3 py-2">
+      <span className="text-primary-foreground/80">{label}</span>
+      <span className="font-semibold text-primary-foreground">{value}</span>
     </div>
   );
 }

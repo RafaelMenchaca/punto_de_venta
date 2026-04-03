@@ -1,0 +1,14 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "eslint.workingDirectories": [
+    {
+      "directory": "apps/api",
+      "changeProcessCWD": true
+    },
+    {
+      "directory": "apps/web",
+      "changeProcessCWD": true
+    }
+  ]
+}
